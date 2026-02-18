@@ -31,29 +31,29 @@ class Navigation extends StatefulWidget {
 class _NavigationState extends State<Navigation> {
   int _index = 0;
 
-  void _showAddItemOptions(BuildContext context) {
+  void _showAddItemOptions(BuildContext scaffoldContext) {
     showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+      context: scaffoldContext,
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Add Item'),
         content: const Text('How would you like to add an item?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           FilledButton.icon(
             onPressed: () {
-              Navigator.pop(context);
-              _openCameraScanner(context);
+              Navigator.pop(dialogContext);
+              _openCameraScanner(scaffoldContext);
             },
             icon: const Icon(Icons.camera_alt),
             label: const Text('Scan with Camera'),
           ),
           FilledButton.icon(
             onPressed: () {
-              Navigator.pop(context);
-              _openManualForm(context);
+              Navigator.pop(dialogContext);
+              _openManualForm(scaffoldContext);
             },
             icon: const Icon(Icons.edit),
             label: const Text('Manual Entry'),
@@ -108,19 +108,20 @@ class _NavigationState extends State<Navigation> {
         FBottomNavigationBarItem(icon: Icon(FIcons.settings), label: Text('Settings')),
       ],
     ),
-    child: Stack(children: [
-      contents[_index],
-      Positioned(
-        bottom: 40.0, 
-        right: 16.0,
-        child: FButton(
-          style: FButtonStyle.primary(),
-          onPress: () {
-            _showAddItemOptions(context);
-          },
-          child: const Icon(FIcons.plus),
+    child: Builder(
+      builder: (scaffoldContext) => Stack(children: [
+        contents[_index],
+        Positioned(
+          bottom: 40.0, 
+          right: 16.0,
+          child: FButton(
+            onPress: () {
+              _showAddItemOptions(scaffoldContext);
+            },
+            child: const Icon(FIcons.plus),
+          ),
         ),
-      ),
-    ]),
+      ]),
+    ),
   );
 }

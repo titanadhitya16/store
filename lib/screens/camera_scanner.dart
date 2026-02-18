@@ -1,19 +1,20 @@
 import 'dart:async';
+import 'dart:math';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:storehsk/component/itemForm.dart';
 import 'package:storehsk/models/stocks.dart';
-import 'package:tflite_flutter/tflite_flutter.dart';
+import 'package:onnxruntime/onnxruntime.dart';
 import 'package:image/image.dart' as img;
+import 'package:flutter/services.dart' show rootBundle;
 
-// Class to hold detection results with centroid info
+// Class to hold classification results
 class Detection {
-  final Offset centroid;
   final double confidence;
   final String label;
 
   Detection({
-    required this.centroid,
     required this.confidence,
     required this.label,
   });
@@ -31,18 +32,36 @@ class CameraScanner extends StatefulWidget {
 class _CameraScannerState extends State<CameraScanner> {
   CameraController? _cameraController;
   bool _isProcessing = false;
-  Interpreter? _interpreter;
+  OrtSession? _session;
   List<Detection> _detections = [];
   bool _isModelLoaded = false;
-  String _statusMessage = 'Initializing...';
+  String _statusMessage = 'Initializing spark plug scanner...';
   DateTime _lastProcessedTime = DateTime.now();
-  static const int processingIntervalMs = 300; // Process every 300ms
+  int processingIntervalMs = 200; // Start with 200ms, will adapt
+  bool _formOpened = false; // Track if form has been auto-opened
+  int _frameCount = 0;
+  int _slowFrameCount = 0;
+  DateTime? _modelLoadTime;
+  
+  // Real-time classification scores for debugging
+  double _currentClass0Score = 0.0;
+  double _currentClass1Score = 0.0;
+  String _currentPrediction = 'none';
 
   @override
   void initState() {
     super.initState();
-    _initializeCamera();
-    _loadModel();
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    // Load model FIRST before starting camera
+    await _loadModel();
+    
+    // Only start camera if model loaded successfully
+    if (_isModelLoaded) {
+      await _initializeCamera();
+    }
   }
 
   Future<void> _initializeCamera() async {
@@ -57,7 +76,7 @@ class _CameraScannerState extends State<CameraScanner> {
 
       _cameraController = CameraController(
         cameras[0],
-        ResolutionPreset.low, // Use low resolution for better performance
+        ResolutionPreset.medium, // Medium for better quality, we'll downsample
         enableAudio: false,
         imageFormatGroup: ImageFormatGroup.yuv420,
       );
@@ -66,12 +85,24 @@ class _CameraScannerState extends State<CameraScanner> {
 
       if (!mounted) return;
 
-      setState(() {
-        _statusMessage = 'Camera ready';
-      });
+      // Only update status if model is loaded
+      if (_isModelLoaded) {
+        setState(() {
+          _statusMessage = 'Camera ready. Warming up... (5s)';
+        });
 
-      // Start streaming
-      _startImageStream();
+        // Wait 5 seconds for camera to stabilize before starting inference
+        await Future.delayed(const Duration(seconds: 5));
+        
+        if (!mounted) return;
+        
+        setState(() {
+          _statusMessage = 'Ready to scan spark plugs';
+        });
+
+        // Start streaming only if model is ready
+        _startImageStream();
+      }
     } catch (e) {
       debugPrint('Camera initialization error: $e');
       setState(() {
@@ -82,14 +113,29 @@ class _CameraScannerState extends State<CameraScanner> {
 
   Future<void> _loadModel() async {
     try {
-      _interpreter = await Interpreter.fromAsset(
-        'luqman_dev-project-1-cpp-android-v2/tflite-model/tflite_learn_874838_10.tflite',
-      );
-      setState(() {
-        _isModelLoaded = true;
-        _statusMessage = 'Model loaded';
-      });
-      debugPrint('Model loaded successfully');
+      // Release existing session if any
+      _session?.release();
+      
+      // Load model from assets
+      final modelData = await rootBundle.load('model/object_detection.onnx');
+      final modelBytes = modelData.buffer.asUint8List();
+      
+      // Create ONNX Runtime session with optimizations
+      final sessionOptions = OrtSessionOptions()
+        ..setInterOpNumThreads(2)
+        ..setIntraOpNumThreads(2)
+        ..setSessionGraphOptimizationLevel(GraphOptimizationLevel.ortEnableAll);
+      
+      _session = OrtSession.fromBuffer(modelBytes, sessionOptions);
+      _modelLoadTime = DateTime.now();
+      
+      if (mounted) {
+        setState(() {
+          _isModelLoaded = true;
+          _statusMessage = 'Model loaded successfully';
+        });
+      }
+      debugPrint('ONNX model loaded successfully with 2 threads');
     } catch (e) {
       debugPrint('Error loading model: $e');
       setState(() {
@@ -114,43 +160,75 @@ class _CameraScannerState extends State<CameraScanner> {
           _isModelLoaded &&
           timeSinceLastProcess >= processingIntervalMs) {
         _isProcessing = true;
+        final processingStartTime = DateTime.now();
         _lastProcessedTime = now;
         _processCameraImage(cameraImage).then((_) {
           _isProcessing = false;
+          
+          // Adaptive throttling - adjust interval based on processing time
+          final processingTime = DateTime.now().difference(processingStartTime).inMilliseconds;
+          if (processingTime > processingIntervalMs) {
+            _slowFrameCount++;
+            if (_slowFrameCount > 3) {
+              processingIntervalMs = min(500, processingIntervalMs + 50);
+              debugPrint('Increasing interval to ${processingIntervalMs}ms due to slow processing');
+              _slowFrameCount = 0;
+            }
+          } else if (processingTime < processingIntervalMs / 2 && processingIntervalMs > 200) {
+            processingIntervalMs = max(200, processingIntervalMs - 50);
+            debugPrint('Decreasing interval to ${processingIntervalMs}ms');
+          }
         });
       }
     });
   }
 
   Future<void> _processCameraImage(CameraImage cameraImage) async {
+    img.Image? image;
+    img.Image? resizedImage;
+    
     try {
-      // Convert CameraImage to img.Image
-      final img.Image? image = _convertCameraImage(cameraImage);
+      _frameCount++;
+      
+      // Don't reload model anymore - it causes instability
+      // Original issue was stuck predictions, but model reload is too aggressive
+      
+      // Convert CameraImage to img.Image (downsampled)
+      image = _convertCameraImageOptimized(cameraImage);
       if (image == null) return;
 
+      // Resize for model input (use bilinear interpolation like cv2.resize)
+      resizedImage = img.copyResize(image, width: 224, height: 224, interpolation: img.Interpolation.linear);
+
       // Run inference
-      final detections = await _runInference(image);
+      final detections = await _runInference(resizedImage);
 
       if (mounted) {
         setState(() {
           _detections = detections;
           if (detections.isNotEmpty) {
-            _statusMessage = '${detections.length} object(s) detected';
+            _statusMessage = 'Spark plug detected! Opening form...';
           } else {
-            _statusMessage = 'No objects detected';
+            _statusMessage = 'Scanning...';
           }
         });
       }
     } catch (e) {
       debugPrint('Processing error: $e');
+    } finally {
+      // Clear references to allow garbage collection
+      image = null;
+      resizedImage = null;
     }
   }
 
-  img.Image? _convertCameraImage(CameraImage cameraImage) {
+  img.Image? _convertCameraImageOptimized(CameraImage cameraImage) {
     try {
-      // Optimized YUV420 to RGB conversion
-      final int width = cameraImage.width;
-      final int height = cameraImage.height;
+      // Downsample by 2x during conversion to reduce memory and processing time
+      final int origWidth = cameraImage.width;
+      final int origHeight = cameraImage.height;
+      final int width = origWidth ~/ 2;
+      final int height = origHeight ~/ 2;
       final int uvRowStride = cameraImage.planes[1].bytesPerRow;
       final int uvPixelStride = cameraImage.planes[1].bytesPerPixel ?? 1;
 
@@ -159,18 +237,20 @@ class _CameraScannerState extends State<CameraScanner> {
       final uPlane = cameraImage.planes[1].bytes;
       final vPlane = cameraImage.planes[2].bytes;
 
-      // Optimized loop with pre-calculated values
+      // Process every other pixel to downsample
       for (int h = 0; h < height; h++) {
-        final int uvRow = (h ~/ 2) * uvRowStride;
+        final int origH = h * 2;
+        final int uvRow = (origH ~/ 2) * uvRowStride;
         for (int w = 0; w < width; w++) {
-          final int uvIndex = (w ~/ 2) * uvPixelStride + uvRow;
-          final int yIndex = h * width + w;
+          final int origW = w * 2;
+          final int uvIndex = (origW ~/ 2) * uvPixelStride + uvRow;
+          final int yIndex = origH * origWidth + origW;
 
           final int y = yPlane[yIndex];
           final int u = uPlane[uvIndex];
           final int v = vPlane[uvIndex];
 
-          // Fast YUV to RGB conversion
+          // Fast YUV to RGB conversion with integer math
           final int r = (y + 1.402 * (v - 128)).toInt().clamp(0, 255);
           final int g = (y - 0.344136 * (u - 128) - 0.714136 * (v - 128))
               .toInt()
@@ -188,63 +268,124 @@ class _CameraScannerState extends State<CameraScanner> {
     }
   }
 
-  Future<List<Detection>> _runInference(img.Image image) async {
+  Future<List<Detection>> _runInference(img.Image resizedImage) async {
+    Float32List? inputBuffer;
+    
     try {
-      if (_interpreter == null) {
+      if (_session == null) {
         return [];
       }
 
-      // Save original dimensions for bounding box calculation
-      final originalWidth = image.width;
-      final originalHeight = image.height;
+      // Convert to Float32 input tensor format (optimized)
+      inputBuffer = _imageToFloat32ListOptimized(resizedImage);
 
-      // Resize image to model input size (96x96 for FOMO model)
-      final resizedImage = img.copyResize(image, width: 96, height: 96);
-
-      // Convert to INT8 input tensor format
-      var input = _imageToByteListInt8(resizedImage);
-
-      // Prepare output tensor [1, 12, 12, 2] for FOMO object detection
-      var output = List.generate(
-        1,
-        (_) => List.generate(
-          12,
-          (_) => List.generate(12, (_) => List.filled(2, 0)),
-        ),
+      // Create ONNX Runtime input tensor [1, 224, 224, 3]
+      final inputOrt = OrtValueTensor.createTensorWithDataList(
+        inputBuffer,
+        [1, 224, 224, 3],
       );
+      
+      // Get input name from session
+      final inputNames = _session!.inputNames;
+      final runOptions = OrtRunOptions();
 
       // Run inference
-      _interpreter!.run(input, output);
-
-      // Process FOMO output and create centroids
+      final outputs = _session!.run(
+        runOptions,
+        {inputNames.first: inputOrt},
+      );
+      
+      // Get output tensor - assuming output shape is [1, 2]
+      final outputValue = outputs.first;
+      if (outputValue == null) {
+        debugPrint('No output from model');
+        inputOrt.release();
+        runOptions.release();
+        for (var o in outputs) {
+          o?.release();
+        }
+        return [];
+      }
+      
+      final outputData = outputValue.value as List<List<double>>;
+      
+      // Process classification output
       List<Detection> detections = [];
-      const threshold = 0.5; // 50% confidence threshold
-      const gridSize = 12;
+      const threshold = 0.90; // 90% confidence threshold for auto-opening form
 
-      // Each grid cell represents a region in the original image
-      final cellWidth = originalWidth / gridSize;
-      final cellHeight = originalHeight / gridSize;
+      // Get output values
+      // Class 0 = background, Class 1 = spark plug
+      double scoreClass0 = outputData[0][0];
+      double scoreClass1 = outputData[0][1];
+      
+      // Validate outputs are not NaN or infinite
+      if (scoreClass0.isNaN || scoreClass0.isInfinite || 
+          scoreClass1.isNaN || scoreClass1.isInfinite) {
+        debugPrint('Invalid model output detected, skipping frame');
+        inputOrt.release();
+        runOptions.release();
+        for (var o in outputs) {
+          o?.release();
+        }
+        return [];
+      }
+      
+      debugPrint('Raw scores - Class 0 (Background): $scoreClass0, Class 1 (Spark Plug): $scoreClass1');
+      
+      double confidenceClass0;
+      double confidenceClass1;
+      
+      // Only apply softmax if values are logits (matching Python ModelTest.py behavior)
+      if (scoreClass0.abs() > 10 || scoreClass1.abs() > 10) {
+        // Values are logits — apply softmax to convert to probabilities
+        double maxScore = scoreClass0 > scoreClass1 ? scoreClass0 : scoreClass1;
+        double expClass0 = exp(scoreClass0 - maxScore);
+        double expClass1 = exp(scoreClass1 - maxScore);
+        double sumExp = expClass0 + expClass1;
+        confidenceClass0 = expClass0 / sumExp;
+        confidenceClass1 = expClass1 / sumExp;
+      } else {
+        // Values are already probabilities — use directly
+        confidenceClass0 = scoreClass0;
+        confidenceClass1 = scoreClass1;
+        
+        // Sanity check: probabilities should be between 0 and 1
+        if (confidenceClass0 < 0 || confidenceClass0 > 1 || 
+            confidenceClass1 < 0 || confidenceClass1 > 1) {
+          debugPrint('Invalid probability values detected, skipping frame');
+          return [];
+        }
+      }
+      
+      debugPrint('Probabilities - Background: ${(confidenceClass0 * 100).toStringAsFixed(2)}%, Spark Plug: ${(confidenceClass1 * 100).toStringAsFixed(2)}%');
 
-      for (int y = 0; y < gridSize; y++) {
-        for (int x = 0; x < gridSize; x++) {
-          // Convert INT8 output to probability (dequantize)
-          // FOMO output: index 0 = background, index 1 = object class
-          int rawValue = output[0][y][x][1];
-          double confidence = (rawValue + 128) / 255.0; // INT8 to [0,1]
+      // Update current scores for UI display
+      if (mounted) {
+        setState(() {
+          _currentClass0Score = confidenceClass0;
+          _currentClass1Score = confidenceClass1;
+          _currentPrediction = confidenceClass1 > confidenceClass0 ? 'spark plug' : 'background';
+        });
+      }
 
-          if (confidence > threshold) {
-            // Calculate centroid (center of the grid cell)
-            final centerX = (x + 0.5) * cellWidth;
-            final centerY = (y + 0.5) * cellHeight;
+      // Determine predicted class
+      int predictedClass = confidenceClass1 > confidenceClass0 ? 1 : 0;
 
-            detections.add(
-              Detection(
-                centroid: Offset(centerX, centerY),
-                confidence: confidence,
-                label: 'saklar rumah',
-              ),
-            );
-          }
+      // If class 1 (spark plug) detected with confidence >= threshold
+      if (predictedClass == 1 && confidenceClass1 >= threshold) {
+        detections.add(
+          Detection(
+            confidence: confidenceClass1,
+            label: 'spark plug',
+          ),
+        );
+
+        // Automatically open the form (only once per scan session)
+        if (mounted && !_formOpened) {
+          _formOpened = true; // Prevent multiple triggers
+          Future.delayed(Duration.zero, () {
+            _openFormWithDetectedItem('spark plug');
+          });
         }
       }
 
@@ -253,27 +394,31 @@ class _CameraScannerState extends State<CameraScanner> {
       debugPrint('Inference error: $e');
       debugPrint('Stack trace: $stackTrace');
       return [];
+    } finally {
+      // Clear input buffer
+      inputBuffer = null;
     }
   }
 
-  List<List<List<List<int>>>> _imageToByteListInt8(img.Image image) {
-    // Convert image to INT8 format for FOMO model
-    // Input shape: [1, 96, 96, 3] with INT8 values [-128, 127]
-    return List.generate(
-      1,
-      (_) => List.generate(
-        image.height,
-        (y) => List.generate(image.width, (x) {
-          var pixel = image.getPixel(x, y);
-          // Convert from [0, 255] to [-128, 127]
-          return [
-            (pixel.r.toInt() - 128),
-            (pixel.g.toInt() - 128),
-            (pixel.b.toInt() - 128),
-          ];
-        }),
-      ),
-    );
+  Float32List _imageToFloat32ListOptimized(img.Image image) {
+    // Optimized: Use Float32List directly instead of nested lists
+    // Input shape: [1, 224, 224, 3] = 150528 floats
+    final int inputSize = 224 * 224 * 3;
+    final Float32List buffer = Float32List(inputSize);
+    
+    int bufferIndex = 0;
+    // Process in row-major order (height, width, channels)
+    for (int y = 0; y < image.height; y++) {
+      for (int x = 0; x < image.width; x++) {
+        final pixel = image.getPixel(x, y);
+        // Normalize from [0, 255] to [0.0, 1.0]
+        buffer[bufferIndex++] = pixel.r / 255.0;
+        buffer[bufferIndex++] = pixel.g / 255.0;
+        buffer[bufferIndex++] = pixel.b / 255.0;
+      }
+    }
+    
+    return buffer;
   }
 
   void _showDetectionDialog(Detection detection) {
@@ -326,19 +471,23 @@ class _CameraScannerState extends State<CameraScanner> {
       itemName: detectedItem,
       onItemSaved: (newItem) {
         widget.onItemDetected?.call(newItem);
+        _formOpened = false; // Reset flag to allow another auto-detection
         // Restart camera stream
         if (_cameraController != null &&
             _cameraController!.value.isInitialized) {
           _startImageStream();
         }
-      },
+      }
     );
   }
 
   @override
   void dispose() {
-    _cameraController?.dispose();
-    _interpreter?.close();
+    _cameraController?.stopImageStream().then((_) {
+      _cameraController?.dispose();
+    });
+    _session?.release();
+    _session = null;
     super.dispose();
   }
 
@@ -346,7 +495,7 @@ class _CameraScannerState extends State<CameraScanner> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Real-time Scanner'),
+        title: const Text('Spark Plug Scanner'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: _cameraController == null || !_cameraController!.value.isInitialized
@@ -365,18 +514,6 @@ class _CameraScannerState extends State<CameraScanner> {
               children: [
                 // Camera Preview
                 CameraPreview(_cameraController!),
-
-                // Centroids overlay
-                if (_detections.isNotEmpty)
-                  CustomPaint(
-                    painter: CentroidPainter(
-                      detections: _detections,
-                      imageSize: Size(
-                        _cameraController!.value.previewSize!.height,
-                        _cameraController!.value.previewSize!.width,
-                      ),
-                    ),
-                  ),
 
                 // Status overlay
                 Positioned(
@@ -406,14 +543,60 @@ class _CameraScannerState extends State<CameraScanner> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        if (_detections.isNotEmpty)
+                        if (!_formOpened)
                           Text(
-                            'Tap on a detection to add to inventory',
+                            'Point camera at spark plug (90% confidence required)',
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.9),
                               fontSize: 12,
                             ),
                           ),
+                        const SizedBox(height: 8),
+                        // Real-time classification scores
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Live Scores:',
+                                style: TextStyle(
+                                  color: Colors.yellow,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Background: ${(_currentClass0Score * 100).toStringAsFixed(1)}%',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              Text(
+                                'Spark Plug: ${(_currentClass1Score * 100).toStringAsFixed(1)}%',
+                                style: TextStyle(
+                                  color: _currentClass1Score > 0.5 ? Colors.green : Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: _currentClass1Score > 0.5 ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                              Text(
+                                'Prediction: $_currentPrediction',
+                                style: TextStyle(
+                                  color: Colors.cyan,
+                                  fontSize: 11,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -493,96 +676,5 @@ class _CameraScannerState extends State<CameraScanner> {
               ],
             ),
     );
-  }
-}
-
-// Custom painter to draw centroids with probabilities
-class CentroidPainter extends CustomPainter {
-  final List<Detection> detections;
-  final Size imageSize;
-
-  CentroidPainter({required this.detections, required this.imageSize});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Calculate scale factor for image to screen
-    final double scaleX = size.width / imageSize.width;
-    final double scaleY = size.height / imageSize.height;
-    final double scale = scaleX < scaleY ? scaleX : scaleY;
-
-    // Calculate offset to center the image
-    final double offsetX = (size.width - imageSize.width * scale) / 2;
-    final double offsetY = (size.height - imageSize.height * scale) / 2;
-
-    for (var detection in detections) {
-      // Scale and position centroid
-      final double centroidX = detection.centroid.dx * scale + offsetX;
-      final double centroidY = detection.centroid.dy * scale + offsetY;
-      final Offset scaledCentroid = Offset(centroidX, centroidY);
-
-      // Draw outer circle (glow effect)
-      final Paint glowPaint = Paint()
-        ..color = Colors.green.withOpacity(0.3)
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(scaledCentroid, 20, glowPaint);
-
-      // Draw middle circle
-      final Paint circlePaint = Paint()
-        ..color = Colors.green
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(scaledCentroid, 8, circlePaint);
-
-      // Draw center dot
-      final Paint centerPaint = Paint()
-        ..color = Colors.white
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(scaledCentroid, 3, centerPaint);
-
-      // Draw probability label
-      final String labelText =
-          '${(detection.confidence * 100).toStringAsFixed(0)}%';
-
-      final TextSpan span = TextSpan(
-        text: labelText,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-        ),
-      );
-
-      final TextPainter textPainter = TextPainter(
-        text: span,
-        textAlign: TextAlign.center,
-        textDirection: TextDirection.ltr,
-      );
-
-      textPainter.layout();
-
-      // Draw label below the centroid
-      final double labelX = centroidX - textPainter.width / 2;
-      final double labelY = centroidY + 25;
-
-      // Draw background for label
-      final Rect labelBg = Rect.fromLTWH(
-        labelX - 4,
-        labelY - 2,
-        textPainter.width + 8,
-        textPainter.height + 4,
-      );
-
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(labelBg, const Radius.circular(4)),
-        Paint()..color = Colors.green.withOpacity(0.9),
-      );
-
-      // Draw text
-      textPainter.paint(canvas, Offset(labelX, labelY));
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CentroidPainter oldDelegate) {
-    return oldDelegate.detections != detections;
   }
 }

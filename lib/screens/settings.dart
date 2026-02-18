@@ -117,7 +117,6 @@ class _SettingsState extends State<Settings> {
             ),
             const SizedBox(height: 16),
             FButton(
-              style: FButtonStyle.outline(),
               onPress: () => _showEditProfileDialog(),
               child: const Text('Edit Profile'),
             ),

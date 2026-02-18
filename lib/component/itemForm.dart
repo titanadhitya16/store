@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:storehsk/models/stocks.dart';
-import 'package:storehsk/screens/storage.dart';
+import 'package:storehsk/services/firebase_service.dart';
+import 'package:intl/intl.dart';
+
+final FirebaseService _firebaseService = FirebaseService();
 
 class ItemFormContent extends StatefulWidget {
   final Stocks? item;
@@ -25,14 +28,15 @@ class ItemFormContent extends StatefulWidget {
 
 class _ItemFormContentState extends State<ItemFormContent> with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
+  final _itemNameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _quantityController = TextEditingController();
   final _priceController = TextEditingController();
   
-  late FSelectController<String> _itemNameController;
   late FSelectController<String> _categoryController;
   late FSelectController<String> _unitController;
   
+  DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
   
   final List<String> _categories = [
@@ -60,29 +64,36 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
   @override
   void initState() {
     super.initState();
-    _itemNameController = FSelectController<String>();
     _categoryController = FSelectController<String>();
     _unitController = FSelectController<String>();
     
     if (widget.item != null) {
       _populateForm(widget.item!);
     } else if (widget.initialItemName != null) {
-      _itemNameController.value = widget.initialItemName;
+      _itemNameController.text = widget.initialItemName!;
     }
   }
 
   void _populateForm(Stocks item) {
-    _itemNameController.value = item.itemName;
+    _itemNameController.text = item.itemName;
     _quantityController.text = item.itemCount.toString();
-    // Add more fields as your Stocks model expands
+    _selectedDate = item.itemDate;
+    _descriptionController.text = item.description ?? '';
+    _priceController.text = item.price?.toString() ?? '';
+    if (item.category != null) {
+      _categoryController.value = item.category;
+    }
+    if (item.unit != null) {
+      _unitController.value = item.unit;
+    }
   }
 
   @override
   void dispose() {
+    _itemNameController.dispose();
     _descriptionController.dispose();
     _quantityController.dispose();
     _priceController.dispose();
-    _itemNameController.dispose();
     _categoryController.dispose();
     _unitController.dispose();
     super.dispose();
@@ -91,10 +102,10 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
   Future<void> _saveItem() async {
     if (!_formKey.currentState!.validate()) return;
     
-    if (_itemNameController.value == null) {
+    if (_itemNameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select an item'),
+          content: Text('Please enter an item name'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -108,12 +119,27 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
     try {
       // Create new item
       final newItem = Stocks(
-        itemName: _itemNameController.value!,
+        id: widget.item?.id,
+        itemName: _itemNameController.text.trim(),
         itemCount: int.parse(_quantityController.text.trim()),
+        itemDate: _selectedDate,
+        description: _descriptionController.text.trim().isNotEmpty 
+            ? _descriptionController.text.trim() 
+            : null,
+        category: _categoryController.value,
+        price: _priceController.text.trim().isNotEmpty 
+            ? double.parse(_priceController.text.trim()) 
+            : null,
+        unit: _unitController.value,
+        createdAt: widget.item?.createdAt ?? DateTime.now(),
       );
 
-      // Simulate API call delay
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Save to Firebase
+      if (widget.item == null) {
+        await _firebaseService.addStock(newItem);
+      } else {
+        await _firebaseService.updateStock(widget.item!.id!, newItem);
+      }
 
       widget.onItemSaved?.call(newItem);
       
@@ -164,17 +190,43 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
       ),
     );
 
-    if (confirmed == true) {
-      widget.onItemDeleted?.call();
-      if (mounted) {
-        widget.controller.hide();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Item deleted successfully!'),
-            backgroundColor: Colors.orange,
-          ),
-        );
+    if (confirmed == true && widget.item?.id != null) {
+      try {
+        await _firebaseService.deleteStock(widget.item!.id!);
+        widget.onItemDeleted?.call();
+        if (mounted) {
+          widget.controller.hide();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Item deleted successfully!'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error deleting item: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
+    }
+  }
+
+  Future<void> _selectDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
     }
   }
 
@@ -219,14 +271,21 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Item Name Picker
-                    _buildSearchSelect(
+                    // Item Name
+                    _buildTextField(
                       label: 'Item Name *',
                       controller: _itemNameController,
-                      items: {for (var item in inventory) item.itemName: item.itemName},
-                      hint: 'Search for an item',
+                      hint: 'Enter item name',
+                      validator: (value) {
+                        if (value?.isEmpty == true) return 'Item name is required';
+                        return null;
+                      },
                       prefixIcon: Icons.inventory,
                     ),
+                    const SizedBox(height: 16),
+
+                    // Item Date (Required)
+                    _buildDateField(),
                     const SizedBox(height: 16),
 
                     // Description
@@ -314,7 +373,38 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
     );
   }
 
-
+  Widget _buildDateField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Item Date *',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: _selectDate,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.calendar_today, size: 20),
+                const SizedBox(width: 12),
+                Text(
+                  DateFormat('dd/MM/yyyy').format(_selectedDate),
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget _buildActionButtons() {
     return Column(
@@ -322,7 +412,6 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
         SizedBox(
           width: double.infinity,
           child: FButton(
-            style: FButtonStyle.primary(),
             onPress: _isLoading ? null : _saveItem,
             child: _isLoading
                 ? const SizedBox(
@@ -337,7 +426,6 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
         SizedBox(
           width: double.infinity,
           child: FButton(
-            style: FButtonStyle.outline(),
             onPress: () => widget.controller.hide(),
             child: const Text('Cancel'),
           ),
@@ -398,44 +486,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
         const SizedBox(height: 8),
         FSelect<String>(
           expands: false,
-          
           hint: hint,
-          items: items,
-          prefixBuilder: prefixIcon != null 
-            ? (context, style, states) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Icon(prefixIcon, size: 20),
-              )
-            : null,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSearchSelect({
-    required String label,
-    required FSelectController<String> controller,
-    required Map<String, String> items,
-    required String hint,
-    IconData? prefixIcon,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-        ),
-        const SizedBox(height: 8),
-        FSelect<String>.search(
-          hint: hint,
-          filter: (query) async {
-            final lowerQuery = query.toLowerCase();
-            return items.entries
-                .where((entry) => entry.key.toLowerCase().contains(lowerQuery))
-                .map((entry) => entry.value)
-                .toList();
-          },
           items: items,
           prefixBuilder: prefixIcon != null 
             ? (context, style, states) => Padding(

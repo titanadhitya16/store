@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:gap/gap.dart';
-import 'package:storehsk/screens/storage.dart';
+import 'package:storehsk/services/firebase_service.dart';
+
+final FirebaseService _firebaseService = FirebaseService();
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -68,62 +70,68 @@ class _HomeState extends State<Home> {
 
   @override
   Widget build(BuildContext context) {
-    final lowStock = inventory.where((item) => item.itemCount > 0 && item.itemCount < 10).length;
-    final outOfStock = inventory.where((item) => item.itemCount == 0).length;
-
     return FScaffold(
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Welcome Section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Dashboard',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
+      child: StreamBuilder(
+        stream: _firebaseService.getStocksStream(),
+        builder: (context, snapshot) {
+          final inventory = snapshot.data ?? [];
+          final lowStock = inventory.where((item) => item.itemCount > 0 && item.itemCount < 10).length;
+          final outOfStock = inventory.where((item) => item.itemCount == 0).length;
+
+          return SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Welcome Section
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Dashboard',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                      const Gap(4),
+                      Text(
+                        '${_getGreeting()} • ${_formatDate(selectedDate ?? DateTime.now())}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
                   ),
-                  const Gap(4),
-                  Text(
-                    '${_getGreeting()} • ${_formatDate(selectedDate ?? DateTime.now())}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                const Gap(16),
+
+                // Calendar
+                _buildCalendarCard(),
+
+                FDivider(axis: Axis.horizontal,),
+
+                // Sales Trend Chart
+                _buildSalesTrendCard(),
+
+                const Gap(16),
+
+                // Quick Insights
+                _buildQuickInsights(lowStock, outOfStock),
+
+                const Gap(16),
+
+                // Recent Activity
+                _buildRecentActivity(),
+
+                const Gap(80), // Space for bottom nav
+              ],
             ),
-            const Gap(16),
-
-            // Calendar
-            _buildCalendarCard(),
-
-            FDivider(axis: Axis.horizontal,),
-
-            // Sales Trend Chart
-            _buildSalesTrendCard(),
-
-            const Gap(16),
-
-            // Quick Insights
-            _buildQuickInsights(lowStock, outOfStock),
-
-            const Gap(16),
-
-            // Recent Activity
-            _buildRecentActivity(),
-
-            const Gap(80), // Space for bottom nav
-          ],
-        ),
+          );
+        },
       ),
     );
   }

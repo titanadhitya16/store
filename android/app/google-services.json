@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "596238938882",
+    "project_id": "storehsk-94540",
+    "storage_bucket": "storehsk-94540.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:596238938882:android:7eee47b4d654468e9b081b",
+        "android_client_info": {
+          "package_name": "com.example.storehsk"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmRLOqycZl5Ms2YX88iLJ3IhnldwrKxWM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

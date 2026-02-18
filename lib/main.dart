@@ -1,8 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'widget/navigation.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    print('Firebase initialization error: $e');
+  }
+  
   runApp(const Application());
 }
 
@@ -89,7 +101,7 @@ class _ApplicationState extends State<Application> {
       localizationsDelegates: const [...FLocalizations.localizationsDelegates],
       debugShowCheckedModeBanner: false,
       theme: theme.toApproximateMaterialTheme(),
-      builder: (_, child) => FAnimatedTheme(data: theme, child: child!),
+      builder: (_, child) => FTheme(data: theme, child: child!),
       home: FScaffold(
         resizeToAvoidBottomInset: false,
         child: ThemeManager(
