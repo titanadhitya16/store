@@ -3,7 +3,7 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import 'package:storehsk/component/itemForm.dart';
+import 'package:storehsk/widgets/item_form.dart';
 import 'package:storehsk/models/stocks.dart';
 import 'package:onnxruntime/onnxruntime.dart';
 import 'package:image/image.dart' as img;
@@ -39,9 +39,7 @@ class _CameraScannerState extends State<CameraScanner> {
   DateTime _lastProcessedTime = DateTime.now();
   int processingIntervalMs = 200; // Start with 200ms, will adapt
   bool _formOpened = false; // Track if form has been auto-opened
-  int _frameCount = 0;
   int _slowFrameCount = 0;
-  DateTime? _modelLoadTime;
   
   // Real-time classification scores for debugging
   double _currentClass0Score = 0.0;
@@ -116,7 +114,7 @@ class _CameraScannerState extends State<CameraScanner> {
       // Release existing session if any
       _session?.release();
       
-      // Load model from assets
+      // Load model from assets (using IR version 9 compatible model)
       final modelData = await rootBundle.load('model/object_detection.onnx');
       final modelBytes = modelData.buffer.asUint8List();
       
@@ -127,7 +125,6 @@ class _CameraScannerState extends State<CameraScanner> {
         ..setSessionGraphOptimizationLevel(GraphOptimizationLevel.ortEnableAll);
       
       _session = OrtSession.fromBuffer(modelBytes, sessionOptions);
-      _modelLoadTime = DateTime.now();
       
       if (mounted) {
         setState(() {
@@ -188,8 +185,6 @@ class _CameraScannerState extends State<CameraScanner> {
     img.Image? resizedImage;
     
     try {
-      _frameCount++;
-      
       // Don't reload model anymore - it causes instability
       // Original issue was stuck predictions, but model reload is too aggressive
       
@@ -197,8 +192,8 @@ class _CameraScannerState extends State<CameraScanner> {
       image = _convertCameraImageOptimized(cameraImage);
       if (image == null) return;
 
-      // Resize for model input (use bilinear interpolation like cv2.resize)
-      resizedImage = img.copyResize(image, width: 224, height: 224, interpolation: img.Interpolation.linear);
+      // Resize for model input (640x640 for YOLO model)
+      resizedImage = img.copyResize(image, width: 640, height: 640, interpolation: img.Interpolation.linear);
 
       // Run inference
       final detections = await _runInference(resizedImage);
@@ -276,13 +271,13 @@ class _CameraScannerState extends State<CameraScanner> {
         return [];
       }
 
-      // Convert to Float32 input tensor format (optimized)
+      // Convert to Float32 input tensor format (channels-first for YOLO)
       inputBuffer = _imageToFloat32ListOptimized(resizedImage);
 
-      // Create ONNX Runtime input tensor [1, 224, 224, 3]
+      // Create ONNX Runtime input tensor [1, 3, 640, 640] (NCHW format)
       final inputOrt = OrtValueTensor.createTensorWithDataList(
         inputBuffer,
-        [1, 224, 224, 3],
+        [1, 3, 640, 640],
       );
       
       // Get input name from session
@@ -295,7 +290,7 @@ class _CameraScannerState extends State<CameraScanner> {
         {inputNames.first: inputOrt},
       );
       
-      // Get output tensor - assuming output shape is [1, 2]
+      // Get output tensor - output shape is [1, 5, 8400] for YOLO
       final outputValue = outputs.first;
       if (outputValue == null) {
         debugPrint('No output from model');
@@ -307,75 +302,46 @@ class _CameraScannerState extends State<CameraScanner> {
         return [];
       }
       
-      final outputData = outputValue.value as List<List<double>>;
+      // Output shape: [1, 5, 8400]
+      // Each of 8400 predictions has 5 values: [x, y, w, h, confidence]
+      final outputData = outputValue.value as List<List<List<double>>>;
       
-      // Process classification output
+      // Process object detection output
       List<Detection> detections = [];
       const threshold = 0.90; // 90% confidence threshold for auto-opening form
 
-      // Get output values
-      // Class 0 = background, Class 1 = spark plug
-      double scoreClass0 = outputData[0][0];
-      double scoreClass1 = outputData[0][1];
+      // Parse detections from [1, 5, 8400] format
+      final predictions = outputData[0]; // Shape: [5, 8400]
       
-      // Validate outputs are not NaN or infinite
-      if (scoreClass0.isNaN || scoreClass0.isInfinite || 
-          scoreClass1.isNaN || scoreClass1.isInfinite) {
-        debugPrint('Invalid model output detected, skipping frame');
-        inputOrt.release();
-        runOptions.release();
-        for (var o in outputs) {
-          o?.release();
-        }
-        return [];
-      }
+      double maxConfidence = 0.0;
+      int bestDetectionIdx = -1;
       
-      debugPrint('Raw scores - Class 0 (Background): $scoreClass0, Class 1 (Spark Plug): $scoreClass1');
-      
-      double confidenceClass0;
-      double confidenceClass1;
-      
-      // Only apply softmax if values are logits (matching Python ModelTest.py behavior)
-      if (scoreClass0.abs() > 10 || scoreClass1.abs() > 10) {
-        // Values are logits — apply softmax to convert to probabilities
-        double maxScore = scoreClass0 > scoreClass1 ? scoreClass0 : scoreClass1;
-        double expClass0 = exp(scoreClass0 - maxScore);
-        double expClass1 = exp(scoreClass1 - maxScore);
-        double sumExp = expClass0 + expClass1;
-        confidenceClass0 = expClass0 / sumExp;
-        confidenceClass1 = expClass1 / sumExp;
-      } else {
-        // Values are already probabilities — use directly
-        confidenceClass0 = scoreClass0;
-        confidenceClass1 = scoreClass1;
+      // Find the detection with highest confidence
+      for (int i = 0; i < 8400; i++) {
+        double confidence = predictions[4][i]; // 5th value is confidence
         
-        // Sanity check: probabilities should be between 0 and 1
-        if (confidenceClass0 < 0 || confidenceClass0 > 1 || 
-            confidenceClass1 < 0 || confidenceClass1 > 1) {
-          debugPrint('Invalid probability values detected, skipping frame');
-          return [];
+        if (confidence > maxConfidence) {
+          maxConfidence = confidence;
+          bestDetectionIdx = i;
         }
       }
       
-      debugPrint('Probabilities - Background: ${(confidenceClass0 * 100).toStringAsFixed(2)}%, Spark Plug: ${(confidenceClass1 * 100).toStringAsFixed(2)}%');
-
       // Update current scores for UI display
       if (mounted) {
         setState(() {
-          _currentClass0Score = confidenceClass0;
-          _currentClass1Score = confidenceClass1;
-          _currentPrediction = confidenceClass1 > confidenceClass0 ? 'spark plug' : 'background';
+          _currentClass0Score = 1.0 - maxConfidence; // Background score
+          _currentClass1Score = maxConfidence; // Spark plug score
+          _currentPrediction = maxConfidence > 0.5 ? 'spark plug' : 'background';
         });
       }
 
-      // Determine predicted class
-      int predictedClass = confidenceClass1 > confidenceClass0 ? 1 : 0;
+      debugPrint('Best detection confidence: ${(maxConfidence * 100).toStringAsFixed(2)}%');
 
-      // If class 1 (spark plug) detected with confidence >= threshold
-      if (predictedClass == 1 && confidenceClass1 >= threshold) {
+      // If detection confidence >= threshold
+      if (maxConfidence >= threshold && bestDetectionIdx >= 0) {
         detections.add(
           Detection(
-            confidence: confidenceClass1,
+            confidence: maxConfidence,
             label: 'spark plug',
           ),
         );
@@ -387,6 +353,13 @@ class _CameraScannerState extends State<CameraScanner> {
             _openFormWithDetectedItem('spark plug');
           });
         }
+      }
+
+      // Clean up
+      inputOrt.release();
+      runOptions.release();
+      for (var o in outputs) {
+        o?.release();
       }
 
       return detections;
@@ -401,20 +374,22 @@ class _CameraScannerState extends State<CameraScanner> {
   }
 
   Float32List _imageToFloat32ListOptimized(img.Image image) {
-    // Optimized: Use Float32List directly instead of nested lists
-    // Input shape: [1, 224, 224, 3] = 150528 floats
-    final int inputSize = 224 * 224 * 3;
+    // Input shape: [1, 3, 640, 640] in NCHW format (channels-first)
+    final int inputSize = 3 * 640 * 640;
     final Float32List buffer = Float32List(inputSize);
     
-    int bufferIndex = 0;
-    // Process in row-major order (height, width, channels)
+    // Fill in channels-first order: all R values, then all G values, then all B values
+    final int channelSize = 640 * 640;
+    
     for (int y = 0; y < image.height; y++) {
       for (int x = 0; x < image.width; x++) {
         final pixel = image.getPixel(x, y);
+        final int pixelIndex = y * image.width + x;
+        
         // Normalize from [0, 255] to [0.0, 1.0]
-        buffer[bufferIndex++] = pixel.r / 255.0;
-        buffer[bufferIndex++] = pixel.g / 255.0;
-        buffer[bufferIndex++] = pixel.b / 255.0;
+        buffer[pixelIndex] = pixel.r / 255.0;                    // R channel
+        buffer[channelSize + pixelIndex] = pixel.g / 255.0;      // G channel
+        buffer[2 * channelSize + pixelIndex] = pixel.b / 255.0;  // B channel
       }
     }
     

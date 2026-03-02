@@ -77,6 +77,25 @@ class _HomeState extends State<Home> {
           final inventory = snapshot.data ?? [];
           final lowStock = inventory.where((item) => item.itemCount > 0 && item.itemCount < 10).length;
           final outOfStock = inventory.where((item) => item.itemCount == 0).length;
+          
+          // Calculate profit metrics
+          double totalPotentialProfit = 0;
+          double totalStockValue = 0;
+          double totalSellValue = 0;
+          int itemsWithPricing = 0;
+          
+          for (var item in inventory) {
+            if (item.stockPrice != null && item.sellPrice != null && item.itemCount > 0) {
+              totalPotentialProfit += (item.sellPrice! - item.stockPrice!) * item.itemCount;
+              totalStockValue += item.stockPrice! * item.itemCount;
+              totalSellValue += item.sellPrice! * item.itemCount;
+              itemsWithPricing++;
+            }
+          }
+          
+          double averageProfitMargin = totalStockValue > 0 
+              ? ((totalSellValue - totalStockValue) / totalStockValue) * 100 
+              : 0;
 
           return SingleChildScrollView(
             child: Column(
@@ -114,8 +133,10 @@ class _HomeState extends State<Home> {
 
                 FDivider(axis: Axis.horizontal,),
 
-                // Sales Trend Chart
-                _buildSalesTrendCard(),
+                const Gap(16),
+
+                // Profit Overview
+                _buildProfitOverview(totalPotentialProfit, averageProfitMargin, itemsWithPricing, inventory.length),
 
                 const Gap(16),
 
@@ -126,6 +147,11 @@ class _HomeState extends State<Home> {
 
                 // Recent Activity
                 _buildRecentActivity(),
+
+                const Gap(16),
+                
+                 // Sales Trend Chart
+                _buildSalesTrendCard(),
 
                 const Gap(80), // Space for bottom nav
               ],
@@ -251,6 +277,119 @@ class _HomeState extends State<Home> {
               });
             },
           ),
+    );
+  }
+
+  Widget _buildProfitOverview(double totalProfit, double avgMargin, int itemsWithPricing, int totalItems) {
+    final profitColor = totalProfit >= 0 ? Colors.green : Colors.red;
+    final formattedProfit = totalProfit.toStringAsFixed(2);
+    final formattedMargin = avgMargin.toStringAsFixed(1);
+
+    return FCard(
+      title: const Text('Profit Overview'),
+      subtitle: Text('Based on $itemsWithPricing of $totalItems items'),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            // Total Potential Profit
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: profitColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        totalProfit >= 0 ? Icons.trending_up : Icons.trending_down,
+                        color: profitColor,
+                        size: 20,
+                      ),
+                    ),
+                    const Gap(12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Total Potential Profit',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const Gap(2),
+                        Text(
+                          '\$$formattedProfit',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: profitColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const Gap(16),
+            const Divider(),
+            const Gap(16),
+            // Average Profit Margin
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildMetric(
+                  'Avg. Margin',
+                  '$formattedMargin%',
+                  Icons.percent,
+                  avgMargin >= 0 ? Colors.blue : Colors.red,
+                ),
+                Container(
+                  width: 1,
+                  height: 40,
+                  color: Colors.grey.withOpacity(0.3),
+                ),
+                _buildMetric(
+                  'Items Tracked',
+                  '$itemsWithPricing',
+                  Icons.inventory_2,
+                  Colors.purple,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetric(String label, String value, IconData icon, Color color) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 20),
+        const Gap(4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        const Gap(2),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey[600],
+          ),
+        ),
+      ],
     );
   }
 

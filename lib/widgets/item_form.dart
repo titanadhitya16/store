@@ -31,7 +31,8 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
   final _itemNameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _quantityController = TextEditingController();
-  final _priceController = TextEditingController();
+  final _stockPriceController = TextEditingController();
+  final _sellPriceController = TextEditingController();
   
   late FSelectController<String> _categoryController;
   late FSelectController<String> _unitController;
@@ -79,7 +80,8 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
     _quantityController.text = item.itemCount.toString();
     _selectedDate = item.itemDate;
     _descriptionController.text = item.description ?? '';
-    _priceController.text = item.price?.toString() ?? '';
+    _stockPriceController.text = item.stockPrice?.toString() ?? '';
+    _sellPriceController.text = item.sellPrice?.toString() ?? '';
     if (item.category != null) {
       _categoryController.value = item.category;
     }
@@ -93,7 +95,8 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
     _itemNameController.dispose();
     _descriptionController.dispose();
     _quantityController.dispose();
-    _priceController.dispose();
+    _stockPriceController.dispose();
+    _sellPriceController.dispose();
     _categoryController.dispose();
     _unitController.dispose();
     super.dispose();
@@ -117,40 +120,141 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
     });
 
     try {
-      // Create new item
-      final newItem = Stocks(
-        id: widget.item?.id,
-        itemName: _itemNameController.text.trim(),
-        itemCount: int.parse(_quantityController.text.trim()),
-        itemDate: _selectedDate,
-        description: _descriptionController.text.trim().isNotEmpty 
-            ? _descriptionController.text.trim() 
-            : null,
-        category: _categoryController.value,
-        price: _priceController.text.trim().isNotEmpty 
-            ? double.parse(_priceController.text.trim()) 
-            : null,
-        unit: _unitController.value,
-        createdAt: widget.item?.createdAt ?? DateTime.now(),
-      );
-
-      // Save to Firebase
-      if (widget.item == null) {
-        await _firebaseService.addStock(newItem);
-      } else {
-        await _firebaseService.updateStock(widget.item!.id!, newItem);
-      }
-
-      widget.onItemSaved?.call(newItem);
+      final itemName = _itemNameController.text.trim();
+      final newQuantity = int.parse(_quantityController.text.trim());
       
-      if (mounted) {
-        widget.controller.hide();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(widget.item == null ? 'Item added successfully!' : 'Item updated successfully!'),
-            backgroundColor: Colors.green,
-          ),
+      // If editing an existing item, just update it normally
+      if (widget.item != null) {
+        final updatedItem = Stocks(
+          id: widget.item!.id,
+          itemName: itemName,
+          itemCount: newQuantity,
+          itemDate: _selectedDate,
+          description: _descriptionController.text.trim().isNotEmpty 
+              ? _descriptionController.text.trim() 
+              : null,
+          category: _categoryController.value,
+          stockPrice: _stockPriceController.text.trim().isNotEmpty 
+              ? double.parse(_stockPriceController.text.trim()) 
+              : null,
+          sellPrice: _sellPriceController.text.trim().isNotEmpty 
+              ? double.parse(_sellPriceController.text.trim()) 
+              : null,
+          unit: _unitController.value,
+          createdAt: widget.item!.createdAt,
         );
+        
+        await _firebaseService.updateStock(widget.item!.id!, updatedItem);
+        widget.onItemSaved?.call(updatedItem);
+        
+        if (mounted) {
+          widget.controller.hide();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Item updated successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        return;
+      }
+      
+      // For new items, check if an item with the same name already exists
+      final existingItem = await _firebaseService.findStockByExactName(itemName);
+      
+      if (existingItem != null) {
+        // Item exists, merge quantities
+        final mergedQuantity = existingItem.itemCount + newQuantity;
+        
+        if (mergedQuantity < 0) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Cannot reduce quantity below 0'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+          return;
+        }
+        
+        final updatedItem = Stocks(
+          id: existingItem.id,
+          itemName: existingItem.itemName,
+          itemCount: mergedQuantity,
+          itemDate: _selectedDate,
+          description: _descriptionController.text.trim().isNotEmpty 
+              ? _descriptionController.text.trim() 
+              : existingItem.description,
+          category: _categoryController.value ?? existingItem.category,
+          stockPrice: _stockPriceController.text.trim().isNotEmpty 
+              ? double.parse(_stockPriceController.text.trim()) 
+              : existingItem.stockPrice,
+          sellPrice: _sellPriceController.text.trim().isNotEmpty 
+              ? double.parse(_sellPriceController.text.trim()) 
+              : existingItem.sellPrice,
+          unit: _unitController.value ?? existingItem.unit,
+          createdAt: existingItem.createdAt,
+        );
+        
+        await _firebaseService.updateStock(existingItem.id!, updatedItem);
+        widget.onItemSaved?.call(updatedItem);
+        
+        if (mounted) {
+          widget.controller.hide();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Quantity updated: ${existingItem.itemCount} → $mergedQuantity'),
+              backgroundColor: Colors.blue,
+            ),
+          );
+        }
+      } else {
+        // Item doesn't exist, add as new
+        if (newQuantity < 0) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Cannot add item with negative quantity'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+          return;
+        }
+        
+        final newItem = Stocks(
+          id: null,
+          itemName: itemName,
+          itemCount: newQuantity,
+          itemDate: _selectedDate,
+          description: _descriptionController.text.trim().isNotEmpty 
+              ? _descriptionController.text.trim() 
+              : null,
+          category: _categoryController.value,
+          stockPrice: _stockPriceController.text.trim().isNotEmpty 
+              ? double.parse(_stockPriceController.text.trim()) 
+              : null,
+          sellPrice: _sellPriceController.text.trim().isNotEmpty 
+              ? double.parse(_sellPriceController.text.trim()) 
+              : null,
+          unit: _unitController.value,
+          createdAt: DateTime.now(),
+        );
+        
+        await _firebaseService.addStock(newItem);
+        widget.onItemSaved?.call(newItem);
+        
+        if (mounted) {
+          widget.controller.hide();
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Item added successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -235,24 +339,34 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
     final isEditing = widget.item != null;
     
     return Material(
-      child: Column(
-        children: [
-          // Custom header bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey.withOpacity(0.2)),
+      color: Colors.transparent,
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          color: context.theme.colors.background,
+          border: Border.symmetric(
+            horizontal: BorderSide(color: context.theme.colors.border),
+          ),
+        ),
+        child: Column(
+          children: [
+            // Custom header bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: context.theme.colors.border),
+                ),
               ),
-            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   isEditing ? 'Edit Item' : 'Add New Item',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                  style: context.theme.typography.xl2.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: context.theme.colors.foreground,
                   ),
                 ),
                 if (isEditing)
@@ -304,14 +418,13 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                         Expanded(
                           flex: 2,
                           child: _buildTextField(
-                            label: 'Quantity *',
+                            label: 'Quantity * (use - to reduce)',
                             controller: _quantityController,
                             hint: '0',
-                            keyboardType: TextInputType.number,
+                            keyboardType: const TextInputType.numberWithOptions(signed: true),
                             validator: (value) {
                               if (value?.isEmpty == true) return 'Quantity is required';
                               if (int.tryParse(value!) == null) return 'Enter valid number';
-                              if (int.parse(value) < 0) return 'Quantity cannot be negative';
                               return null;
                             },
                             prefixIcon: Icons.numbers,
@@ -331,22 +444,47 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                     ),
                     const SizedBox(height: 16),
 
-                    // Price
-                    _buildTextField(
-                      label: 'Price per Unit',
-                      controller: _priceController,
-                      hint: '0.00',
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      validator: (value) {
-                        if (value?.isNotEmpty == true && double.tryParse(value!) == null) {
-                          return 'Enter valid price';
-                        }
-                        if (value?.isNotEmpty == true && double.parse(value!) < 0) {
-                          return 'Price cannot be negative';
-                        }
-                        return null;
-                      },
-                      prefixIcon: Icons.attach_money,
+                    // Stock Price and Sell Price
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTextField(
+                            label: 'Stock Price (Cost)',
+                            controller: _stockPriceController,
+                            hint: '0.00',
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            validator: (value) {
+                              if (value?.isNotEmpty == true && double.tryParse(value!) == null) {
+                                return 'Enter valid price';
+                              }
+                              if (value?.isNotEmpty == true && double.parse(value!) < 0) {
+                                return 'Price cannot be negative';
+                              }
+                              return null;
+                            },
+                            prefixIcon: Icons.shopping_cart,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildTextField(
+                            label: 'Sell Price',
+                            controller: _sellPriceController,
+                            hint: '0.00',
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            validator: (value) {
+                              if (value?.isNotEmpty == true && double.tryParse(value!) == null) {
+                                return 'Enter valid price';
+                              }
+                              if (value?.isNotEmpty == true && double.parse(value!) < 0) {
+                                return 'Price cannot be negative';
+                              }
+                              return null;
+                            },
+                            prefixIcon: Icons.attach_money,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
 
@@ -370,6 +508,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -512,8 +651,8 @@ FPersistentSheetController showItemFormSheet(
     context: context,
     side: FLayout.btt,
     useSafeArea: true,
-    mainAxisMaxRatio: null,
-    resizeToAvoidBottomInset: false,
+    mainAxisMaxRatio: 0.9,
+    resizeToAvoidBottomInset: true,
     builder: (context, controller) => ItemFormContent(
       item: item,
       initialItemName: itemName,

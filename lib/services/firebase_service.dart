@@ -101,6 +101,22 @@ class FirebaseService {
     }
   }
 
+  // Find stock by exact name match
+  Future<Stocks?> findStockByExactName(String itemName) async {
+    try {
+      QuerySnapshot querySnapshot = await _stocksCollection
+          .where('itemName', isEqualTo: itemName)
+          .limit(1)
+          .get();
+      if (querySnapshot.docs.isNotEmpty) {
+        return Stocks.fromFirestore(querySnapshot.docs.first);
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Failed to find stock by name: $e');
+    }
+  }
+
   // Get low stock items (count < threshold)
   Stream<List<Stocks>> getLowStockItems({int threshold = 10}) {
     return _stocksCollection

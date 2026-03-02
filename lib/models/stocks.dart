@@ -14,7 +14,8 @@ class Stocks {
   final DateTime itemDate;
   final String? description;
   final String? category;
-  final double? price;
+  final double? stockPrice;  // Cost price (buying price)
+  final double? sellPrice;   // Selling price
   final String? unit;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -26,7 +27,8 @@ class Stocks {
     required this.itemDate,
     this.description,
     this.category,
-    this.price,
+    this.stockPrice,
+    this.sellPrice,
     this.unit,
     this.createdAt,
     this.updatedAt,
@@ -40,7 +42,8 @@ class Stocks {
       'itemDate': Timestamp.fromDate(itemDate),
       'description': description,
       'category': category,
-      'price': price,
+      'stockPrice': stockPrice,
+      'sellPrice': sellPrice,
       'unit': unit,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
@@ -57,11 +60,36 @@ class Stocks {
       itemDate: (data['itemDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
       description: data['description'],
       category: data['category'],
-      price: data['price']?.toDouble(),
+      stockPrice: data['stockPrice']?.toDouble(),
+      sellPrice: data['sellPrice']?.toDouble(),
       unit: data['unit'],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );
+  }
+
+  // Calculate profit per unit
+  double? get profitPerUnit {
+    if (sellPrice != null && stockPrice != null) {
+      return sellPrice! - stockPrice!;
+    }
+    return null;
+  }
+
+  // Calculate total profit for all items
+  double? get totalProfit {
+    if (profitPerUnit != null) {
+      return profitPerUnit! * itemCount;
+    }
+    return null;
+  }
+
+  // Calculate profit margin percentage
+  double? get profitMargin {
+    if (sellPrice != null && stockPrice != null && stockPrice! > 0) {
+      return ((sellPrice! - stockPrice!) / stockPrice!) * 100;
+    }
+    return null;
   }
 
   // Create a copy with updated fields
@@ -72,7 +100,8 @@ class Stocks {
     DateTime? itemDate,
     String? description,
     String? category,
-    double? price,
+    double? stockPrice,
+    double? sellPrice,
     String? unit,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -84,7 +113,8 @@ class Stocks {
       itemDate: itemDate ?? this.itemDate,
       description: description ?? this.description,
       category: category ?? this.category,
-      price: price ?? this.price,
+      stockPrice: stockPrice ?? this.stockPrice,
+      sellPrice: sellPrice ?? this.sellPrice,
       unit: unit ?? this.unit,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

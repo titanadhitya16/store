@@ -32,7 +32,9 @@ class _NavigationState extends State<Navigation> {
   int _index = 0;
 
   void _showAddItemOptions(BuildContext scaffoldContext) {
-    final controller = showFPersistentSheet(
+    // Show bottom sheet for adding items (controller used via builder callback)
+    // ignore: unused_result
+    showFPersistentSheet(
       context: scaffoldContext,
       side: FLayout.btt,
       useSafeArea: true,
