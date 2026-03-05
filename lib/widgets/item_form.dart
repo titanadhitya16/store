@@ -34,23 +34,11 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
   final _stockPriceController = TextEditingController();
   final _sellPriceController = TextEditingController();
   
-  late FSelectController<String> _categoryController;
   late FSelectController<String> _unitController;
   
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
   
-  final List<String> _categories = [
-    'General',
-    'Electronics',
-    'Clothing',
-    'Food & Beverage',
-    'Books',
-    'Home & Garden',
-    'Sports',
-    'Health & Beauty',
-  ];
-
   final List<String> _units = [
     'pcs',
     'kg',
@@ -65,7 +53,6 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
   @override
   void initState() {
     super.initState();
-    _categoryController = FSelectController<String>();
     _unitController = FSelectController<String>();
     
     if (widget.item != null) {
@@ -82,9 +69,6 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
     _descriptionController.text = item.description ?? '';
     _stockPriceController.text = item.stockPrice?.toString() ?? '';
     _sellPriceController.text = item.sellPrice?.toString() ?? '';
-    if (item.category != null) {
-      _categoryController.value = item.category;
-    }
     if (item.unit != null) {
       _unitController.value = item.unit;
     }
@@ -97,7 +81,6 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
     _quantityController.dispose();
     _stockPriceController.dispose();
     _sellPriceController.dispose();
-    _categoryController.dispose();
     _unitController.dispose();
     super.dispose();
   }
@@ -133,7 +116,6 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           description: _descriptionController.text.trim().isNotEmpty 
               ? _descriptionController.text.trim() 
               : null,
-          category: _categoryController.value,
           stockPrice: _stockPriceController.text.trim().isNotEmpty 
               ? double.parse(_stockPriceController.text.trim()) 
               : null,
@@ -186,7 +168,6 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           description: _descriptionController.text.trim().isNotEmpty 
               ? _descriptionController.text.trim() 
               : existingItem.description,
-          category: _categoryController.value ?? existingItem.category,
           stockPrice: _stockPriceController.text.trim().isNotEmpty 
               ? double.parse(_stockPriceController.text.trim()) 
               : existingItem.stockPrice,
@@ -231,7 +212,6 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           description: _descriptionController.text.trim().isNotEmpty 
               ? _descriptionController.text.trim() 
               : null,
-          category: _categoryController.value,
           stockPrice: _stockPriceController.text.trim().isNotEmpty 
               ? double.parse(_stockPriceController.text.trim()) 
               : null,
@@ -418,7 +398,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                         Expanded(
                           flex: 2,
                           child: _buildTextField(
-                            label: 'Quantity * (use - to reduce)',
+                            label: 'Quantity *',
                             controller: _quantityController,
                             hint: '0',
                             keyboardType: const TextInputType.numberWithOptions(signed: true),
@@ -485,16 +465,6 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Category
-                    _buildSelect(
-                      label: 'Category',
-                      controller: _categoryController,
-                      items: {for (var category in _categories) category: category},
-                      hint: 'Select category',
-                      prefixIcon: Icons.category,
                     ),
                     const SizedBox(height: 24),
 

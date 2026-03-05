@@ -10,14 +10,7 @@ class Settings extends StatefulWidget {
 }
 
 class _SettingsState extends State<Settings> {
-  bool enableNotifications = true;
-  bool enableAutoBackup = false;
-  String selectedLanguage = 'English';
-  String selectedCurrency = 'USD';
   double fontSize = 16.0;
-
-  final List<String> languages = ['English', 'Indonesian', 'Spanish', 'French'];
-  final List<String> currencies = ['USD', 'IDR', 'EUR', 'JPY'];
   
   final Map<String, String> themeColors = {
     'zinc': 'Zinc',
@@ -52,24 +45,8 @@ class _SettingsState extends State<Settings> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Profile Section
-              _buildProfileSection(),
-              const SizedBox(height: 24),
-
               // Appearance Settings
               _buildAppearanceSection(),
-              const SizedBox(height: 24),
-
-              // App Preferences
-              _buildPreferencesSection(),
-              const SizedBox(height: 24),
-
-              // Notifications
-              _buildNotificationSection(),
-              const SizedBox(height: 24),
-
-              // Data & Storage
-              _buildDataSection(),
               const SizedBox(height: 24),
 
               // About & Help
@@ -80,47 +57,6 @@ class _SettingsState extends State<Settings> {
               _buildDangerSection(),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProfileSection() {
-    return FCard(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            const CircleAvatar(
-              radius: 50,
-              backgroundColor: Colors.blueAccent,
-              child: Icon(
-                Icons.person,
-                size: 50,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Store Manager',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              'admin@storehsk.com',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 16),
-            FButton(
-              onPress: () => _showEditProfileDialog(),
-              child: const Text('Edit Profile'),
-            ),
-          ],
         ),
       ),
     );
@@ -215,137 +151,6 @@ class _SettingsState extends State<Settings> {
     );
   }
 
-  Widget _buildPreferencesSection() {
-    return FCard(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Preferences',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            _buildSettingTile(
-              icon: Icons.language,
-              title: 'Language',
-              subtitle: selectedLanguage,
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () => _showLanguageSelector(),
-            ),
-            
-            _buildSettingTile(
-              icon: Icons.attach_money,
-              title: 'Currency',
-              subtitle: selectedCurrency,
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () => _showCurrencySelector(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNotificationSection() {
-    return FCard(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Notifications',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            _buildSettingTile(
-              icon: Icons.notifications,
-              title: 'Push Notifications',
-              subtitle: 'Receive alerts for low stock and updates',
-              trailing: FSwitch(
-                value: enableNotifications,
-                onChange: (value) {
-                  setState(() {
-                    enableNotifications = value;
-                  });
-                },
-              ),
-            ),
-            
-            _buildSettingTile(
-              icon: Icons.email,
-              title: 'Email Notifications',
-              subtitle: 'Receive daily reports via email',
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () => _showNotificationSettings(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDataSection() {
-    return FCard(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Data & Storage',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            _buildSettingTile(
-              icon: Icons.backup,
-              title: 'Auto Backup',
-              subtitle: 'Automatically backup data daily',
-              trailing: FSwitch(
-                value: enableAutoBackup,
-                onChange: (value) {
-                  setState(() {
-                    enableAutoBackup = value;
-                  });
-                },
-              ),
-            ),
-            
-            _buildSettingTile(
-              icon: Icons.download,
-              title: 'Export Data',
-              subtitle: 'Download your data as CSV/Excel',
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () => _showExportOptions(),
-            ),
-            
-            _buildSettingTile(
-              icon: Icons.upload,
-              title: 'Import Data',
-              subtitle: 'Upload data from file',
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () => _showImportOptions(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildAboutSection() {
     return FCard(
       child: Padding(
@@ -354,7 +159,7 @@ class _SettingsState extends State<Settings> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'About & Help',
+              'About',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -368,22 +173,6 @@ class _SettingsState extends State<Settings> {
               subtitle: '1.0.0 (Build 100)',
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               onTap: () => _showVersionInfo(),
-            ),
-            
-            _buildSettingTile(
-              icon: Icons.help,
-              title: 'Help & Support',
-              subtitle: 'Get help and contact support',
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () => _showHelpDialog(),
-            ),
-            
-            _buildSettingTile(
-              icon: Icons.privacy_tip,
-              title: 'Privacy Policy',
-              subtitle: 'View our privacy policy',
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () => _showPrivacyPolicy(),
             ),
           ],
         ),
@@ -484,43 +273,6 @@ class _SettingsState extends State<Settings> {
   }
 
   // Dialog methods
-  void _showEditProfileDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Profile'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              decoration: InputDecoration(
-                labelText: 'Name',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            SizedBox(height: 16),
-            TextField(
-              decoration: InputDecoration(
-                labelText: 'Email',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showThemeSelector() {
     final themeManager = ThemeManager.of(context);
     final selectedThemeColor = themeManager?.selectedThemeColor ?? 'zinc';
@@ -583,132 +335,6 @@ class _SettingsState extends State<Settings> {
     );
   }
 
-  void _showLanguageSelector() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Language'),
-        content: Material(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: languages.map((language) => 
-              ListTile(
-                title: Text(language),
-                leading: Radio<String>(
-                  value: language,
-                  groupValue: selectedLanguage,
-                  onChanged: (value) {
-                    setState(() {
-                      selectedLanguage = value!;
-                    });
-                    Navigator.pop(context);
-                  },
-                ),
-                onTap: () {
-                  setState(() {
-                    selectedLanguage = language;
-                  });
-                  Navigator.pop(context);
-                },
-              ),
-            ).toList(),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showCurrencySelector() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Currency'),
-        content: Material(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: currencies.map((currency) => 
-              ListTile(
-                title: Text(currency),
-                leading: Radio<String>(
-                  value: currency,
-                  groupValue: selectedCurrency,
-                  onChanged: (value) {
-                    setState(() {
-                      selectedCurrency = value!;
-                    });
-                    Navigator.pop(context);
-                  },
-                ),
-                onTap: () {
-                  setState(() {
-                    selectedCurrency = currency;
-                  });
-                  Navigator.pop(context);
-                },
-              ),
-            ).toList(),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showNotificationSettings() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Email Notifications'),
-        content: const Text('Configure email notification preferences here.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showExportOptions() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Export Data'),
-        content: const Text('Choose export format and data to export.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('CSV'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Excel'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showImportOptions() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Import Data'),
-        content: const Text('Select file to import data from.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Choose File'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showVersionInfo() {
     showDialog(
       context: context,
@@ -724,55 +350,6 @@ class _SettingsState extends State<Settings> {
             SizedBox(height: 16),
             Text('© 2026 StoreHSK. All rights reserved.'),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showHelpDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Help & Support'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Need help? Contact us:'),
-            SizedBox(height: 8),
-            Text('Email: support@storehsk.com'),
-            Text('Phone: +1 (555) 123-4567'),
-            SizedBox(height: 16),
-            Text('Documentation and tutorials are available on our website.'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showPrivacyPolicy() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Privacy Policy'),
-        content: const SingleChildScrollView(
-          child: Text(
-            'Privacy Policy content would be displayed here. '
-            'This would typically be a long document explaining '
-            'how user data is collected, used, and protected.',
-          ),
         ),
         actions: [
           TextButton(
@@ -844,10 +421,6 @@ class _SettingsState extends State<Settings> {
   void _resetToDefaults() {
     final themeManager = ThemeManager.of(context);
     setState(() {
-      enableNotifications = true;
-      enableAutoBackup = false;
-      selectedLanguage = 'English';
-      selectedCurrency = 'USD';
       fontSize = 16.0;
     });
     themeManager?.onThemeChanged(isDarkMode: true, themeColor: 'zinc');
