@@ -364,26 +364,28 @@ class _SellFormState extends State<SellForm> {
                       final item = items[index];
                       
                       if (!_quantityControllers.containsKey(item.id)) {
-                        final controller = TextEditingController();
-                        _quantityControllers[item.id!] = controller;
-                        // Listen to controller changes instead of onChanged
-                        controller.addListener(() {
-                          final sellItem = _selectedItems[item.id];
-                          if (sellItem != null) {
-                            final newQuantity = int.tryParse(controller.text) ?? 0;
-                            if (sellItem.quantityToSell != newQuantity) {
-                              sellItem.quantityToSell = newQuantity;
-                              // Use a delayed setState to avoid rebuilding while typing
-                              Future.microtask(() {
-                                if (mounted) setState(() {});
-                              });
-                            }
-                          }
-                        });
+                        _quantityControllers[item.id!] = TextEditingController();
                       }
                       
                       if (!_focusNodes.containsKey(item.id)) {
-                        _focusNodes[item.id!] = FocusNode();
+                        final focusNode = FocusNode();
+                        _focusNodes[item.id!] = focusNode;
+                        
+                        // Update quantity only when field loses focus
+                        focusNode.addListener(() {
+                          if (!focusNode.hasFocus) {
+                            final controller = _quantityControllers[item.id];
+                            final sellItem = _selectedItems[item.id];
+                            if (controller != null && sellItem != null) {
+                              final newQuantity = int.tryParse(controller.text) ?? 0;
+                              if (sellItem.quantityToSell != newQuantity) {
+                                setState(() {
+                                  sellItem.quantityToSell = newQuantity;
+                                });
+                              }
+                            }
+                          }
+                        });
                       }
                       
                       if (!_selectedItems.containsKey(item.id)) {

@@ -150,7 +150,7 @@ class _HomeState extends State<Home> {
         final cardPadding = isSmallScreen ? 12.0 : 20.0;
 
         return FCard(
-          title: const Text('Profit Analytics'),
+          title: const Text('Laporan Penjualan'),
           child: Padding(
             padding: EdgeInsets.all(cardPadding),
             child: Column(
@@ -186,7 +186,7 @@ class _HomeState extends State<Home> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Total Sales',
+                              'Total Terjual',
                               style: TextStyle(
                                 fontSize: labelFontSize,
                                 fontWeight: FontWeight.w500,
@@ -252,7 +252,7 @@ class _HomeState extends State<Home> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Actual Profit',
+                              'Untung Bersih',
                               style: TextStyle(
                                 fontSize: labelFontSize,
                                 fontWeight: FontWeight.w500,
@@ -272,14 +272,6 @@ class _HomeState extends State<Home> {
                                   color: profitColor,
                                   letterSpacing: -0.5,
                                 ),
-                              ),
-                            ),
-                            const Gap(4),
-                            Text(
-                              'From sales on selected date',
-                              style: TextStyle(
-                                fontSize: isSmallScreen ? 10.0 : 11.0,
-                                color: Colors.grey[500],
                               ),
                             ),
                           ],
@@ -369,7 +361,7 @@ class _HomeState extends State<Home> {
                             ),
                             const Gap(4),
                             Text(
-                              'Items Sold',
+                              'Terjual',
                               style: TextStyle(
                                 fontSize: isSmallScreen ? 10.0 : 11.0,
                                 color: Colors.grey[600],
@@ -393,7 +385,7 @@ class _HomeState extends State<Home> {
 
   Widget _buildQuickInsights(int lowStock, int outOfStock) {
     return FCard(
-      title: const Text('Quick Insights'),
+      title: const Text('Kondisi Stok'),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -402,7 +394,7 @@ class _HomeState extends State<Home> {
               _buildInsightRow(
                 Icons.error,
                 'Critical',
-                '$outOfStock items are out of stock',
+                '$outOfStock barang habis stok',
                 Colors.red,
               ),
             if (lowStock > 0) ...[
@@ -410,15 +402,15 @@ class _HomeState extends State<Home> {
               _buildInsightRow(
                 Icons.warning_amber,
                 'Warning',
-                '$lowStock items running low on stock',
+                '$lowStock barang hampir habis stok',
                 Colors.orange,
               ),
             ],
             if (outOfStock == 0 && lowStock == 0)
               _buildInsightRow(
                 Icons.check_circle,
-                'All Good',
-                'All inventory levels are healthy',
+                'Stok Terpenuhi',
+                'Semua stok dalam kondisi baik',
                 Colors.green,
               ),
           ],
@@ -467,8 +459,8 @@ class _HomeState extends State<Home> {
   Widget _buildRecentActivity(List<Sale> sales) {
     if (sales.isEmpty) {
       return FCard(
-        title: const Text('Recent Sales'),
-        subtitle: const Text('Sales for selected date'),
+        title: const Text('Penjualan Terkini'),
+        subtitle: const Text('Penjualan untuk tanggal terpilih'),
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Center(
@@ -488,8 +480,8 @@ class _HomeState extends State<Home> {
     }
 
     return FCard(
-      title: const Text('Recent Sales'),
-      subtitle: Text('${sales.length} sale(s) for ${_formatDate(selectedDate ?? DateTime.now())}'),
+      title: const Text('Penjualan Terkini'),
+      subtitle: Text('${sales.length} penjualan untuk ${_formatDate(selectedDate ?? DateTime.now())}'),
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Column(
@@ -521,7 +513,7 @@ class _HomeState extends State<Home> {
                         ),
                         const Gap(2),
                         Text(
-                          'Qty: ${sale.quantitySold} • Profit: ${formatRupiah(sale.profit)}',
+                          'Qty: ${sale.quantitySold} • Untung: ${formatRupiah(sale.profit)}',
                           style: TextStyle(
                             fontSize: 12,
                             color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
@@ -541,7 +533,7 @@ class _HomeState extends State<Home> {
                         ),
                       ),
                       Text(
-                        'Revenue',
+                        'Pendapatan',
                         style: TextStyle(
                           fontSize: 10,
                           color: Colors.grey[600],

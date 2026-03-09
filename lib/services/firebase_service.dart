@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:storehsk/models/stocks.dart';
+import 'package:storehsk/services/notification_service.dart';
 
 class FirebaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String _collectionName = 'stocks';
+  final NotificationService _notificationService = NotificationService();
 
   // Get reference to stocks collection
   CollectionReference get _stocksCollection =>
@@ -59,7 +61,29 @@ class FirebaseService {
   // Update a stock item
   Future<void> updateStock(String id, Stocks stock) async {
     try {
+      // Get the previous stock to check if it became empty
+      final previousStock = await getStockById(id);
+      
       await _stocksCollection.doc(id).update(stock.toFirestore());
+      
+      // Check if stock just became empty
+      if (previousStock != null && 
+          previousStock.itemCount > 0 && 
+          stock.itemCount == 0) {
+        await _notificationService.showOutOfStockNotification(
+          itemName: stock.itemName,
+        );
+      }
+      // Check if stock just became low (threshold: 10)
+      else if (previousStock != null && 
+               previousStock.itemCount >= 10 && 
+               stock.itemCount < 10 && 
+               stock.itemCount > 0) {
+        await _notificationService.showLowStockNotification(
+          itemName: stock.itemName,
+          quantity: stock.itemCount,
+        );
+      }
     } catch (e) {
       throw Exception('Failed to update stock: $e');
     }
@@ -77,10 +101,32 @@ class FirebaseService {
   // Update stock quantity
   Future<void> updateStockQuantity(String id, int newQuantity) async {
     try {
+      // Get the previous stock to check if it became empty
+      final previousStock = await getStockById(id);
+      
       await _stocksCollection.doc(id).update({
         'itemCount': newQuantity,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+      
+      // Check if stock just became empty
+      if (previousStock != null && 
+          previousStock.itemCount > 0 && 
+          newQuantity == 0) {
+        await _notificationService.showOutOfStockNotification(
+          itemName: previousStock.itemName,
+        );
+      }
+      // Check if stock just became low (threshold: 10)
+      else if (previousStock != null && 
+               previousStock.itemCount >= 10 && 
+               newQuantity < 10 && 
+               newQuantity > 0) {
+        await _notificationService.showLowStockNotification(
+          itemName: previousStock.itemName,
+          quantity: newQuantity,
+        );
+      }
     } catch (e) {
       throw Exception('Failed to update stock quantity: $e');
     }

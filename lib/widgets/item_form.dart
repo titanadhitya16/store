@@ -1,10 +1,49 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:forui/forui.dart';
 import 'package:storehsk/models/stocks.dart';
 import 'package:storehsk/services/firebase_service.dart';
 import 'package:intl/intl.dart';
 
 final FirebaseService _firebaseService = FirebaseService();
+
+class ThousandsSeparatorInputFormatter extends TextInputFormatter {
+  final NumberFormat _formatter = NumberFormat('#,##0', 'id_ID');
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.isEmpty) {
+      return newValue;
+    }
+
+    // Remove all non-digit characters
+    String digitsOnly = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
+    
+    if (digitsOnly.isEmpty) {
+      return const TextEditingValue();
+    }
+
+    // Parse and format
+    final number = int.tryParse(digitsOnly);
+    if (number == null) {
+      return oldValue;
+    }
+
+    // Format with dots as thousand separators
+    final formatted = _formatter.format(number).replaceAll(',', '.');
+
+    // Calculate new cursor position
+    int cursorPosition = formatted.length;
+    
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: cursorPosition),
+    );
+  }
+}
 
 class ItemFormContent extends StatefulWidget {
   final Stocks? item;
@@ -63,8 +102,17 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
     _itemNameController.text = item.itemName;
     _quantityController.text = item.itemCount.toString();
     _selectedDate = item.itemDate;
-    _stockPriceController.text = item.stockPrice?.toString() ?? '';
-    _sellPriceController.text = item.sellPrice?.toString() ?? '';
+    
+    // Format prices with thousand separators
+    if (item.stockPrice != null) {
+      final formatted = NumberFormat('#,##0', 'id_ID').format(item.stockPrice!.toInt());
+      _stockPriceController.text = formatted.replaceAll(',', '.');
+    }
+    if (item.sellPrice != null) {
+      final formatted = NumberFormat('#,##0', 'id_ID').format(item.sellPrice!.toInt());
+      _sellPriceController.text = formatted.replaceAll(',', '.');
+    }
+    
     if (item.unit != null) {
       _unitController.value = item.unit;
     }
@@ -78,6 +126,13 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
     _sellPriceController.dispose();
     _unitController.dispose();
     super.dispose();
+  }
+
+  double? _parsePrice(String text) {
+    if (text.trim().isEmpty) return null;
+    // Remove dots (thousand separators) and parse
+    final digitsOnly = text.replaceAll('.', '');
+    return double.tryParse(digitsOnly);
   }
 
   Future<void> _saveItem() async {
@@ -109,12 +164,8 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           itemCount: newQuantity,
           itemDate: _selectedDate,
           description: widget.item!.description,
-          stockPrice: _stockPriceController.text.trim().isNotEmpty 
-              ? double.parse(_stockPriceController.text.trim()) 
-              : null,
-          sellPrice: _sellPriceController.text.trim().isNotEmpty 
-              ? double.parse(_sellPriceController.text.trim()) 
-              : null,
+          stockPrice: _parsePrice(_stockPriceController.text),
+          sellPrice: _parsePrice(_sellPriceController.text),
           unit: _unitController.value,
           createdAt: widget.item!.createdAt,
         );
@@ -159,12 +210,8 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           itemCount: mergedQuantity,
           itemDate: _selectedDate,
           description: existingItem.description,
-          stockPrice: _stockPriceController.text.trim().isNotEmpty 
-              ? double.parse(_stockPriceController.text.trim()) 
-              : existingItem.stockPrice,
-          sellPrice: _sellPriceController.text.trim().isNotEmpty 
-              ? double.parse(_sellPriceController.text.trim()) 
-              : existingItem.sellPrice,
+          stockPrice: _parsePrice(_stockPriceController.text) ?? existingItem.stockPrice,
+          sellPrice: _parsePrice(_sellPriceController.text) ?? existingItem.sellPrice,
           unit: _unitController.value ?? existingItem.unit,
           createdAt: existingItem.createdAt,
         );
@@ -201,12 +248,8 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           itemCount: newQuantity,
           itemDate: _selectedDate,
           description: null,
-          stockPrice: _stockPriceController.text.trim().isNotEmpty 
-              ? double.parse(_stockPriceController.text.trim()) 
-              : null,
-          sellPrice: _sellPriceController.text.trim().isNotEmpty 
-              ? double.parse(_sellPriceController.text.trim()) 
-              : null,
+          stockPrice: _parsePrice(_stockPriceController.text),
+          sellPrice: _parsePrice(_sellPriceController.text),
           unit: _unitController.value,
           createdAt: DateTime.now(),
         );
@@ -384,14 +427,14 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                           child: _buildTextField(
                             label: 'Stock Price (Cost)',
                             controller: _stockPriceController,
-                            hint: '0.00',
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            hint: '0',
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [ThousandsSeparatorInputFormatter()],
                             validator: (value) {
-                              if (value?.isNotEmpty == true && double.tryParse(value!) == null) {
-                                return 'Enter valid price';
-                              }
-                              if (value?.isNotEmpty == true && double.parse(value!) < 0) {
-                                return 'Price cannot be negative';
+                              if (value?.isNotEmpty == true) {
+                                final price = _parsePrice(value!);
+                                if (price == null) return 'Enter valid price';
+                                if (price < 0) return 'Price cannot be negative';
                               }
                               return null;
                             },
@@ -403,14 +446,14 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                           child: _buildTextField(
                             label: 'Sell Price',
                             controller: _sellPriceController,
-                            hint: '0.00',
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            hint: '0',
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [ThousandsSeparatorInputFormatter()],
                             validator: (value) {
-                              if (value?.isNotEmpty == true && double.tryParse(value!) == null) {
-                                return 'Enter valid price';
-                              }
-                              if (value?.isNotEmpty == true && double.parse(value!) < 0) {
-                                return 'Price cannot be negative';
+                              if (value?.isNotEmpty == true) {
+                                final price = _parsePrice(value!);
+                                if (price == null) return 'Enter valid price';
+                                if (price < 0) return 'Price cannot be negative';
                               }
                               return null;
                             },
@@ -504,6 +547,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
     String? Function(String?)? validator,
     int maxLines = 1,
     IconData? prefixIcon,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -518,6 +562,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           keyboardType: keyboardType,
           validator: validator,
           maxLines: maxLines,
+          inputFormatters: inputFormatters,
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: prefixIcon != null ? Icon(prefixIcon, size: 20) : null,
