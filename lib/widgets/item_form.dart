@@ -29,7 +29,6 @@ class ItemFormContent extends StatefulWidget {
 class _ItemFormContentState extends State<ItemFormContent> with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _itemNameController = TextEditingController();
-  final _descriptionController = TextEditingController();
   final _quantityController = TextEditingController();
   final _stockPriceController = TextEditingController();
   final _sellPriceController = TextEditingController();
@@ -42,12 +41,10 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
   final List<String> _units = [
     'pcs',
     'kg',
-    'lbs',
     'liters',
     'meters',
     'boxes',
     'sets',
-    'dozens',
   ];
 
   @override
@@ -66,7 +63,6 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
     _itemNameController.text = item.itemName;
     _quantityController.text = item.itemCount.toString();
     _selectedDate = item.itemDate;
-    _descriptionController.text = item.description ?? '';
     _stockPriceController.text = item.stockPrice?.toString() ?? '';
     _sellPriceController.text = item.sellPrice?.toString() ?? '';
     if (item.unit != null) {
@@ -77,7 +73,6 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
   @override
   void dispose() {
     _itemNameController.dispose();
-    _descriptionController.dispose();
     _quantityController.dispose();
     _stockPriceController.dispose();
     _sellPriceController.dispose();
@@ -113,9 +108,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           itemName: itemName,
           itemCount: newQuantity,
           itemDate: _selectedDate,
-          description: _descriptionController.text.trim().isNotEmpty 
-              ? _descriptionController.text.trim() 
-              : null,
+          description: widget.item!.description,
           stockPrice: _stockPriceController.text.trim().isNotEmpty 
               ? double.parse(_stockPriceController.text.trim()) 
               : null,
@@ -165,9 +158,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           itemName: existingItem.itemName,
           itemCount: mergedQuantity,
           itemDate: _selectedDate,
-          description: _descriptionController.text.trim().isNotEmpty 
-              ? _descriptionController.text.trim() 
-              : existingItem.description,
+          description: existingItem.description,
           stockPrice: _stockPriceController.text.trim().isNotEmpty 
               ? double.parse(_stockPriceController.text.trim()) 
               : existingItem.stockPrice,
@@ -209,9 +200,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           itemName: itemName,
           itemCount: newQuantity,
           itemDate: _selectedDate,
-          description: _descriptionController.text.trim().isNotEmpty 
-              ? _descriptionController.text.trim() 
-              : null,
+          description: null,
           stockPrice: _stockPriceController.text.trim().isNotEmpty 
               ? double.parse(_stockPriceController.text.trim()) 
               : null,
@@ -331,32 +320,6 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
         ),
         child: Column(
           children: [
-            // Custom header bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: context.theme.colors.border),
-                ),
-              ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  isEditing ? 'Edit Item' : 'Add New Item',
-                  style: context.theme.typography.xl2.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: context.theme.colors.foreground,
-                  ),
-                ),
-                if (isEditing)
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: _deleteItem,
-                  ),
-              ],
-            ),
-          ),
           Expanded(
             child: Form(
               key: _formKey,
@@ -380,16 +343,6 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
 
                     // Item Date (Required)
                     _buildDateField(),
-                    const SizedBox(height: 16),
-
-                    // Description
-                    _buildTextField(
-                      label: 'Description',
-                      controller: _descriptionController,
-                      hint: 'Enter item description (optional)',
-                      maxLines: 3,
-                      prefixIcon: Icons.description,
-                    ),
                     const SizedBox(height: 16),
 
                     // Quantity and Unit

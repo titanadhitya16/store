@@ -3,6 +3,7 @@ import 'package:forui/forui.dart';
 import 'package:storehsk/models/stocks.dart';
 import 'package:storehsk/services/firebase_service.dart';
 import 'package:intl/intl.dart';
+import 'package:storehsk/utils/currency_formatter.dart';
 
 // Create Firebase service instance
 final FirebaseService _firebaseService = FirebaseService();
@@ -289,7 +290,7 @@ class _StorageState extends State<Storage> {
                 if (item.stockPrice != null)
                   _buildDetailRow(
                     'Stock Price (Cost)',
-                    '\$${item.stockPrice!.toStringAsFixed(2)}',
+                    formatRupiah(item.stockPrice!),
                     Icons.shopping_cart,
                     Colors.orange,
                   ),
@@ -298,7 +299,7 @@ class _StorageState extends State<Storage> {
                   const SizedBox(height: 12),
                   _buildDetailRow(
                     'Sell Price',
-                    '\$${item.sellPrice!.toStringAsFixed(2)}',
+                    formatRupiah(item.sellPrice!),
                     Icons.attach_money,
                     Colors.green,
                   ),
@@ -319,7 +320,7 @@ class _StorageState extends State<Storage> {
                   const SizedBox(height: 12),
                   _buildDetailRow(
                     'Potential Profit',
-                    '\$${potentialProfit.toStringAsFixed(2)}',
+                    formatRupiah(potentialProfit),
                     Icons.account_balance_wallet,
                     Colors.green,
                     isBold: true,
@@ -353,11 +354,16 @@ class _StorageState extends State<Storage> {
                           int newQuantity = item.itemCount + adjustment;
                           
                           if (newQuantity < 0) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Stock cannot be negative'),
-                                backgroundColor: Colors.orange,
-                              ),
+                            showFToast(
+                              context: context,
+                              style: .delta(padding: EdgeInsets.all(16)),
+                              icon: const Icon(FIcons.triangleAlert, color: Colors.orange),
+                              title: const Text('Invalid Stock'),
+                              description: const Text('Stock cannot be negative'),
+                              suffixBuilder: (context, entry) =>
+                                  GestureDetector(onTap: entry.dismiss, child: const Icon(FIcons.x)),
+                              alignment: .topCenter,
+                              duration: const Duration(seconds: 3),
                             );
                             return;
                           }
@@ -378,19 +384,34 @@ class _StorageState extends State<Storage> {
                           
                           if (context.mounted) {
                             Navigator.of(context).pop();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Stock updated: ${item.itemCount} → $newQuantity'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
+                            // Small delay to ensure dialog is dismissed before showing toast
+                            Future.delayed(const Duration(milliseconds: 100), () {
+                              if (context.mounted) {
+                                showFToast(
+                                  context: context,
+                                  style: .delta(padding: EdgeInsets.all(16)),
+                                  icon: const Icon(FIcons.check, color: Colors.green),
+                                  title: const Text('Stock Updated'),
+                                  description: Text('${item.itemName}: ${item.itemCount} → $newQuantity'),
+                                  suffixBuilder: (context, entry) =>
+                                      GestureDetector(onTap: entry.dismiss, child: const Icon(FIcons.x)),
+                                  alignment: .bottomCenter,
+                                  duration: const Duration(seconds: 4),
+                                );
+                              }
+                            });
                           }
                         } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Invalid input: $e'),
-                              backgroundColor: Colors.red,
-                            ),
+                          showFToast(
+                            context: context,
+                            style: .delta(padding: EdgeInsets.all(16)),
+                            icon: const Icon(FIcons.circleAlert, color: Colors.red),
+                            title: const Text('Invalid Input'),
+                            description: const Text('Please enter a valid number (e.g., +5 or -3)'),
+                            suffixBuilder: (context, entry) =>
+                                GestureDetector(onTap: entry.dismiss, child: const Icon(FIcons.x)),
+                            alignment: .topCenter,
+                            duration: const Duration(seconds: 3),
                           );
                         }
                       },
@@ -439,21 +460,41 @@ class _StorageState extends State<Storage> {
                   await _firebaseService.deleteStock(item.id!);
                   if (context.mounted) {
                     Navigator.of(context).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('"${item.itemName}" deleted successfully'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
+                    // Small delay to ensure dialog is dismissed before showing toast
+                    Future.delayed(const Duration(milliseconds: 100), () {
+                      if (context.mounted) {
+                        showFToast(
+                          context: context,
+                          style: .delta(padding: EdgeInsets.all(16)),
+                          icon: const Icon(FIcons.trash, color: Colors.green),
+                          title: const Text('Item Deleted'),
+                          description: Text('"${item.itemName}" deleted successfully'),
+                          suffixBuilder: (context, entry) =>
+                              GestureDetector(onTap: entry.dismiss, child: const Icon(FIcons.x)),
+                          alignment: .topCenter,
+                          duration: const Duration(seconds: 3),
+                        );
+                      }
+                    });
                   }
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Failed to delete item: $e'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
+                    Navigator.of(context).pop();
+                    Future.delayed(const Duration(milliseconds: 100), () {
+                      if (context.mounted) {
+                        showFToast(
+                          context: context,
+                          style: .delta(padding: EdgeInsets.all(16)),
+                          icon: const Icon(FIcons.circleAlert, color: Colors.red),
+                          title: const Text('Delete Failed'),
+                          description: Text('Failed to delete item: $e'),
+                          suffixBuilder: (context, entry) =>
+                              GestureDetector(onTap: entry.dismiss, child: const Icon(FIcons.x)),
+                          alignment: .topCenter,
+                          duration: const Duration(seconds: 4),
+                        );
+                      }
+                    });
                   }
                 }
               }

@@ -5,6 +5,7 @@ import 'package:storehsk/screens/home.dart';
 import 'package:storehsk/screens/camera_scanner.dart';
 import 'package:storehsk/screens/settings.dart';
 import 'package:storehsk/widgets/item_form.dart';
+import 'package:storehsk/widgets/sell_form.dart';
   
 final headers = [
   const FHeader(),
@@ -108,6 +109,24 @@ class _NavigationState extends State<Navigation> {
               SizedBox(
                 width: double.infinity,
                 child: FButton(
+                  onPress: () {
+                    controller.hide();
+                    _openSellForm(scaffoldContext);
+                  },
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(FIcons.shoppingCart),
+                      SizedBox(width: 8),
+                      Text('Sell Items'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FButton(
                   onPress: () => controller.hide(),
                   child: const Text('Cancel'),
                 ),
@@ -147,6 +166,15 @@ class _NavigationState extends State<Navigation> {
             backgroundColor: Colors.green,
           ),
         );
+      },
+    );
+  }
+
+  void _openSellForm(BuildContext context) {
+    showSellFormSheet(
+      context,
+      onSaleCompleted: (sales) {
+        // Sales completion is handled by the sell form toast
       },
     );
   }

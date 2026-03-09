@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:gap/gap.dart';
 import 'package:storehsk/services/firebase_service.dart';
+import 'package:storehsk/services/sales_service.dart';
+import 'package:storehsk/models/sale.dart';
+import 'package:storehsk/utils/currency_formatter.dart';
 
 final FirebaseService _firebaseService = FirebaseService();
+final SalesService _salesService = SalesService();
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -15,128 +19,6 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> {
   DateTime? selectedDate = DateTime.now();
 
-  // Sample data - in real app, this would come from a database/API
-  // Date-specific data structure with actual items sold
-  final Map<String, Map<String, dynamic>> dailyData = {
-    '2026-02-12': {
-      'sales': [12.5, 18.3, 14.7, 22.1, 19.8, 25.4, 21.0],
-      'itemsSoldData': [
-        {'itemName': 'Spark Plug', 'quantity': 2, 'sellPrice': 2.0, 'buyPrice': 1.0},  // Profit: (2-1) * 2 = $2
-        {'itemName': 'Oil Filter', 'quantity': 3, 'sellPrice': 8.0, 'buyPrice': 5.0},  // Profit: (8-5) * 3 = $9
-        {'itemName': 'Air Filter', 'quantity': 4, 'sellPrice': 12.0, 'buyPrice': 8.0},  // Profit: (12-8) * 4 = $16
-        {'itemName': 'Brake Pads', 'quantity': 1, 'sellPrice': 35.0, 'buyPrice': 25.0},  // Profit: (35-25) * 1 = $10
-        {'itemName': 'Wiper Blades', 'quantity': 2, 'sellPrice': 6.0, 'buyPrice': 3.5},  // Profit: (6-3.5) * 2 = $5
-      ],  // Total profit: $42
-      'activities': [
-        {'icon': Icons.add_box, 'title': 'New item added', 'subtitle': 'Product A • 2h ago', 'color': Colors.green},
-        {'icon': Icons.shopping_cart, 'title': 'Sale completed', 'subtitle': 'Product B • 3h ago', 'color': Colors.blue},
-        {'icon': Icons.warning, 'title': 'Low stock alert', 'subtitle': 'Product C • 5h ago', 'color': Colors.orange},
-      ],
-    },
-    '2026-02-11': {
-      'sales': [10.2, 15.5, 12.8, 19.3, 17.5, 22.1, 18.6],
-      'itemsSoldData': [
-        {'itemName': 'Spark Plug', 'quantity': 3, 'sellPrice': 2.0, 'buyPrice': 1.0},  // Profit: $3
-        {'itemName': 'Engine Oil', 'quantity': 2, 'sellPrice': 15.0, 'buyPrice': 10.0},  // Profit: $10
-        {'itemName': 'Battery', 'quantity': 1, 'sellPrice': 80.0, 'buyPrice': 60.0},  // Profit: $20
-        {'itemName': 'Coolant', 'quantity': 2, 'sellPrice': 12.0, 'buyPrice': 8.0},  // Profit: $8
-      ],  // Total profit: $41
-      'activities': [
-        {'icon': Icons.update, 'title': 'Stock updated', 'subtitle': 'Product D • 1d ago', 'color': Colors.blue},
-        {'icon': Icons.local_shipping, 'title': 'Delivery received', 'subtitle': 'Product E • 1d ago', 'color': Colors.green},
-      ],
-    },
-    '2026-02-10': {
-      'sales': [14.1, 16.7, 13.2, 20.5, 18.9, 24.3, 19.8],
-      'itemsSoldData': [
-        {'itemName': 'Headlight Bulb', 'quantity': 4, 'sellPrice': 7.0, 'buyPrice': 4.0},  // Profit: $12
-        {'itemName': 'Transmission Fluid', 'quantity': 2, 'sellPrice': 18.0, 'buyPrice': 12.0},  // Profit: $12
-        {'itemName': 'Cabin Filter', 'quantity': 3, 'sellPrice': 10.0, 'buyPrice': 6.0},  // Profit: $12
-        {'itemName': 'Fuse Set', 'quantity': 2, 'sellPrice': 5.0, 'buyPrice': 2.5},  // Profit: $5
-      ],  // Total profit: $41
-      'activities': [
-        {'icon': Icons.inventory, 'title': 'Inventory check', 'subtitle': 'Product F • 2d ago', 'color': Colors.blue},
-        {'icon': Icons.trending_up, 'title': 'High demand alert', 'subtitle': 'Product G • 2d ago', 'color': Colors.green},
-      ],
-    },
-  };
-  
-  final List<String> weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-  // Get data for selected date
-  List<double> get selectedDateSales {
-    final dateKey = _formatDateKey(selectedDate ?? DateTime.now());
-    return dailyData[dateKey]?['sales'] ?? [12.5, 18.3, 14.7, 22.1, 19.8, 25.4, 21.0];
-  }
-
-  double get selectedDateRevenue {
-    final dateKey = _formatDateKey(selectedDate ?? DateTime.now());
-    final itemsSoldData = dailyData[dateKey]?['itemsSoldData'] as List<Map<String, dynamic>>?;
-    
-    if (itemsSoldData == null) return 0.0;
-    
-    double revenue = 0.0;
-    for (var item in itemsSoldData) {
-      revenue += (item['sellPrice'] as double) * (item['quantity'] as int);
-    }
-    return revenue;
-  }
-
-  double get selectedDateProfit {
-    final dateKey = _formatDateKey(selectedDate ?? DateTime.now());
-    final itemsSoldData = dailyData[dateKey]?['itemsSoldData'] as List<Map<String, dynamic>>?;
-    
-    if (itemsSoldData == null) return 0.0;
-    
-    double profit = 0.0;
-    for (var item in itemsSoldData) {
-      final sellPrice = item['sellPrice'] as double;
-      final buyPrice = item['buyPrice'] as double;
-      final quantity = item['quantity'] as int;
-      profit += (sellPrice - buyPrice) * quantity;
-    }
-    return profit;
-  }
-
-  double get selectedDateProfitMargin {
-    final dateKey = _formatDateKey(selectedDate ?? DateTime.now());
-    final itemsSoldData = dailyData[dateKey]?['itemsSoldData'] as List<Map<String, dynamic>>?;
-    
-    if (itemsSoldData == null) return 0.0;
-    
-    double totalCost = 0.0;
-    double totalRevenue = 0.0;
-    
-    for (var item in itemsSoldData) {
-      final sellPrice = item['sellPrice'] as double;
-      final buyPrice = item['buyPrice'] as double;
-      final quantity = item['quantity'] as int;
-      totalCost += buyPrice * quantity;
-      totalRevenue += sellPrice * quantity;
-    }
-    
-    if (totalCost == 0) return 0.0;
-    return ((totalRevenue - totalCost) / totalCost) * 100;
-  }
-
-  int get selectedDateItemsSold {
-    final dateKey = _formatDateKey(selectedDate ?? DateTime.now());
-    final itemsSoldData = dailyData[dateKey]?['itemsSoldData'] as List<Map<String, dynamic>>?;
-    
-    if (itemsSoldData == null) return 0;
-    
-    int totalItems = 0;
-    for (var item in itemsSoldData) {
-      totalItems += item['quantity'] as int;
-    }
-    return totalItems;
-  }
-
-  List<Map<String, dynamic>> get selectedDateActivities {
-    final dateKey = _formatDateKey(selectedDate ?? DateTime.now());
-    return dailyData[dateKey]?['activities'] ?? [];
-  }
-
   String _formatDateKey(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
@@ -146,70 +28,87 @@ class _HomeState extends State<Home> {
     return FScaffold(
       child: StreamBuilder(
         stream: _firebaseService.getStocksStream(),
-        builder: (context, snapshot) {
-          final inventory = snapshot.data ?? [];
+        builder: (context, inventorySnapshot) {
+          final inventory = inventorySnapshot.data ?? [];
           final lowStock = inventory.where((item) => item.itemCount > 0 && item.itemCount < 10).length;
           final outOfStock = inventory.where((item) => item.itemCount == 0).length;
           
-          // Get actual profit metrics for selected date
-          final actualProfit = selectedDateProfit;
-          final profitMargin = selectedDateProfitMargin;
-          final itemsSold = selectedDateItemsSold;
+          return StreamBuilder<List<Sale>>(
+            stream: _salesService.getSalesByDate(selectedDate ?? DateTime.now()),
+            builder: (context, salesSnapshot) {
+              final sales = salesSnapshot.data ?? [];
+              
+              // Calculate metrics from real sales data
+              double actualProfit = 0.0;
+              int itemsSold = 0;
+              double totalRevenue = 0.0;
+              double totalCost = 0.0;
+              
+              for (var sale in sales) {
+                actualProfit += sale.profit;
+                itemsSold += sale.quantitySold;
+                totalRevenue += sale.sellPrice * sale.quantitySold;
+                totalCost += sale.stockPrice * sale.quantitySold;
+              }
+              
+              final profitMargin = totalRevenue > 0 ? (actualProfit / totalRevenue) * 100 : 0.0;
 
-          return SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Welcome Section
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Dashboard',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
+              return SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Welcome Section
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Dashboard',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                          const Gap(4),
+                          Text(
+                            '${_getGreeting()} • ${_formatDate(selectedDate ?? DateTime.now())}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                            ),
+                          ),
+                        ],
                       ),
-                      const Gap(4),
-                      Text(
-                        '${_getGreeting()} • ${_formatDate(selectedDate ?? DateTime.now())}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                    const Gap(16),
+
+                    // Calendar
+                    _buildCalendarCard(),
+
+                    FDivider(axis: Axis.horizontal,),
+
+                    const Gap(16),
+
+                    // Profit Overview
+                    _buildProfitOverview(actualProfit, profitMargin, itemsSold, inventory.length, totalRevenue),
+
+                    const Gap(16),
+
+                    // Quick Insights
+                    _buildQuickInsights(lowStock, outOfStock),
+
+                    const Gap(16),
+
+                    // Recent Activity (Sales)
+                    _buildRecentActivity(sales),
+
+                    const Gap(80), // Space for bottom nav
+                  ],
                 ),
-                const Gap(16),
-
-                // Calendar
-                _buildCalendarCard(),
-
-                FDivider(axis: Axis.horizontal,),
-
-                const Gap(16),
-
-                // Profit Overview
-                _buildProfitOverview(actualProfit, profitMargin, itemsSold, inventory.length),
-
-                const Gap(16),
-
-                // Quick Insights
-                _buildQuickInsights(lowStock, outOfStock),
-
-                const Gap(16),
-
-                // Recent Activity
-                _buildRecentActivity(),
-
-                const Gap(80), // Space for bottom nav
-              ],
-            ),
+              );
+            },
           );
         },
       ),
@@ -229,10 +128,11 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget _buildProfitOverview(double actualProfit, double profitMargin, int itemsSold, int totalItems) {
+  Widget _buildProfitOverview(double actualProfit, double profitMargin, int itemsSold, int totalItems, double totalRevenue) {
     final profitColor = actualProfit >= 0 ? Colors.green : Colors.red;
-    final formattedProfit = actualProfit.toStringAsFixed(2);
+    final formattedProfit = formatRupiah(actualProfit);
     final formattedMargin = profitMargin.toStringAsFixed(1);
+    final formattedRevenue = formatRupiah(totalRevenue);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -251,11 +151,70 @@ class _HomeState extends State<Home> {
 
         return FCard(
           title: const Text('Profit Analytics'),
-          subtitle: Text('Sales data for ${_formatDate(selectedDate ?? DateTime.now())}'),
           child: Padding(
             padding: EdgeInsets.all(cardPadding),
             child: Column(
               children: [
+                // Total Sales Display
+                Container(
+                  padding: EdgeInsets.all(padding),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.blue.withOpacity(0.1),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(isSmallScreen ? 8.0 : 12.0),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.monetization_on,
+                          color: Colors.blue,
+                          size: iconSize,
+                        ),
+                      ),
+                      Gap(isSmallScreen ? 12 : 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Total Sales',
+                              style: TextStyle(
+                                fontSize: labelFontSize,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey[600],
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const Gap(4),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                formattedRevenue,
+                                style: TextStyle(
+                                  fontSize: profitFontSize,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Gap(16),
                 // Main Profit Display
                 Container(
                   padding: EdgeInsets.all(padding),
@@ -306,7 +265,7 @@ class _HomeState extends State<Home> {
                               fit: BoxFit.scaleDown,
                               alignment: Alignment.centerLeft,
                               child: Text(
-                                '\$$formattedProfit',
+                                formattedProfit,
                                 style: TextStyle(
                                   fontSize: profitFontSize,
                                   fontWeight: FontWeight.bold,
@@ -355,7 +314,7 @@ class _HomeState extends State<Home> {
                             FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text(
-                                '$formattedMargin',
+                                formattedMargin,
                                 style: TextStyle(
                                   fontSize: metricFontSize,
                                   fontWeight: FontWeight.bold,
@@ -505,29 +464,46 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget _buildRecentActivity() {
-    final activities = selectedDateActivities.isNotEmpty 
-      ? selectedDateActivities 
-      : [
-          {'icon': Icons.info, 'title': 'No activity', 'subtitle': 'No records for this date', 'color': Colors.grey},
-        ];
+  Widget _buildRecentActivity(List<Sale> sales) {
+    if (sales.isEmpty) {
+      return FCard(
+        title: const Text('Recent Sales'),
+        subtitle: const Text('Sales for selected date'),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Center(
+            child: Column(
+              children: [
+                Icon(Icons.shopping_bag_outlined, size: 48, color: Colors.grey[400]),
+                const SizedBox(height: 12),
+                Text(
+                  'No sales for this date',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return FCard(
-      title: const Text('Recent Activity'),
-      subtitle: const Text('Latest updates'),
+      title: const Text('Recent Sales'),
+      subtitle: Text('${sales.length} sale(s) for ${_formatDate(selectedDate ?? DateTime.now())}'),
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Column(
-          children: activities.map((activity) {
+          children: sales.map((sale) {
+            final profitColor = sale.profit >= 0 ? Colors.green : Colors.red;
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 4.0),
               child: Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: (activity['color'] as Color).withOpacity(0.1),
+                    backgroundColor: profitColor.withOpacity(0.1),
                     child: Icon(
-                      activity['icon'] as IconData,
-                      color: activity['color'] as Color,
+                      Icons.shopping_cart,
+                      color: profitColor,
                       size: 20,
                     ),
                   ),
@@ -537,7 +513,7 @@ class _HomeState extends State<Home> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          activity['title'] as String,
+                          sale.itemName,
                           style: const TextStyle(
                             fontWeight: FontWeight.w500,
                             fontSize: 14,
@@ -545,7 +521,7 @@ class _HomeState extends State<Home> {
                         ),
                         const Gap(2),
                         Text(
-                          activity['subtitle'] as String,
+                          'Qty: ${sale.quantitySold} • Profit: ${formatRupiah(sale.profit)}',
                           style: TextStyle(
                             fontSize: 12,
                             color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
@@ -554,10 +530,24 @@ class _HomeState extends State<Home> {
                       ],
                     ),
                   ),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 20,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        formatRupiah(sale.sellPrice * sale.quantitySold),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        'Revenue',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
