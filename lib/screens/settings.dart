@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:storehsk/main.dart';
+import 'package:storehsk/services/preferences_service.dart';
 
 class Settings extends StatefulWidget {
   const Settings({super.key});
@@ -10,7 +11,15 @@ class Settings extends StatefulWidget {
 }
 
 class _SettingsState extends State<Settings> {
-  double fontSize = 16.0;
+  final _prefsService = PreferencesService();
+  late double fontSize;
+  
+  @override
+  void initState() {
+    super.initState();
+    // Load saved font size preference
+    fontSize = _prefsService.fontSize;
+  }
   
   final Map<String, String> themeColors = {
     'zinc': 'Zinc',
@@ -139,8 +148,8 @@ class _SettingsState extends State<Settings> {
                     onChanged: (value) {
                       setState(() {
                         fontSize = value;
-                      });
-                    },
+                      });                      // Save font size preference
+                      _prefsService.setFontSize(value);                    },
                   ),
                 ),
               ),
@@ -377,12 +386,22 @@ class _SettingsState extends State<Settings> {
           ),
           TextButton(
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              // Implement data clearing logic
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Data cleared successfully')),
-              );
+              // Clear all preferences
+              await _prefsService.clearAll();
+              setState(() {
+                fontSize = 16.0;
+              });
+              // Reset theme to defaults
+              final themeManager = ThemeManager.of(context);
+              themeManager?.onThemeChanged(isDarkMode: true, themeColor: 'zinc');
+              
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('All data and settings cleared successfully')),
+                );
+              }
             },
             child: const Text('Clear All'),
           ),
@@ -418,8 +437,10 @@ class _SettingsState extends State<Settings> {
     );
   }
 
-  void _resetToDefaults() {
+  void _resetToDefaults() async {
     final themeManager = ThemeManager.of(context);
+    // Reset all settings to defaults
+    await _prefsService.resetToDefaults();
     setState(() {
       fontSize = 16.0;
     });

@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'widgets/navigation.dart';
 import 'services/notification_service.dart';
+import 'services/preferences_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,6 +16,9 @@ Future<void> main() async {
     
     // Initialize notification service
     await NotificationService().initialize();
+    
+    // Initialize preferences service
+    await PreferencesService().initialize();
   } catch (e) {
     print('Firebase initialization error: $e');
   }
@@ -30,9 +34,19 @@ class Application extends StatefulWidget {
 }
 
 class _ApplicationState extends State<Application> {
+  final _prefsService = PreferencesService();
+  
   // Theme management
-  bool _isDarkMode = true;
-  String _selectedThemeColor = 'zinc';
+  late bool _isDarkMode;
+  late String _selectedThemeColor;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load saved preferences
+    _isDarkMode = _prefsService.isDarkMode;
+    _selectedThemeColor = _prefsService.themeColor;
+  }
 
   // Method to get the current theme
   FThemeData get _currentTheme {
@@ -91,8 +105,14 @@ class _ApplicationState extends State<Application> {
 
   void _updateTheme({bool? isDarkMode, String? themeColor}) {
     setState(() {
-      if (isDarkMode != null) _isDarkMode = isDarkMode;
-      if (themeColor != null) _selectedThemeColor = themeColor;
+      if (isDarkMode != null) {
+        _isDarkMode = isDarkMode;
+        _prefsService.setDarkMode(isDarkMode);
+      }
+      if (themeColor != null) {
+        _selectedThemeColor = themeColor;
+        _prefsService.setThemeColor(themeColor);
+      }
     });
   }
 
