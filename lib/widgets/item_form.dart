@@ -71,6 +71,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
   final _quantityController = TextEditingController();
   final _stockPriceController = TextEditingController();
   final _sellPriceController = TextEditingController();
+  final _lowStockThresholdController = TextEditingController();
   
   late FSelectController<String> _unitController;
   
@@ -113,6 +114,10 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
       _sellPriceController.text = formatted.replaceAll(',', '.');
     }
     
+    if (item.lowStockThreshold != null) {
+      _lowStockThresholdController.text = item.lowStockThreshold.toString();
+    }
+    
     if (item.unit != null) {
       _unitController.value = item.unit;
     }
@@ -124,6 +129,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
     _quantityController.dispose();
     _stockPriceController.dispose();
     _sellPriceController.dispose();
+    _lowStockThresholdController.dispose();
     _unitController.dispose();
     super.dispose();
   }
@@ -158,6 +164,10 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
       
       // If editing an existing item, just update it normally
       if (widget.item != null) {
+        final lowStockValue = _lowStockThresholdController.text.trim().isEmpty ? null : int.tryParse(_lowStockThresholdController.text.trim());
+        print('DEBUG UPDATE: lowStockThreshold controller text: "${_lowStockThresholdController.text}"');
+        print('DEBUG UPDATE: lowStockThreshold parsed value: $lowStockValue');
+        
         final updatedItem = Stocks(
           id: widget.item!.id,
           itemName: itemName,
@@ -167,8 +177,10 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           stockPrice: _parsePrice(_stockPriceController.text),
           sellPrice: _parsePrice(_sellPriceController.text),
           unit: _unitController.value,
+          lowStockThreshold: lowStockValue,
           createdAt: widget.item!.createdAt,
         );
+        
         
         await _firebaseService.updateStock(widget.item!.id!, updatedItem);
         widget.onItemSaved?.call(updatedItem);
@@ -204,6 +216,13 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           return;
         }
         
+        final lowStockValue = _lowStockThresholdController.text.trim().isEmpty 
+            ? existingItem.lowStockThreshold 
+            : int.tryParse(_lowStockThresholdController.text.trim());
+        print('DEBUG MERGE: lowStockThreshold controller text: "${_lowStockThresholdController.text}"');
+        print('DEBUG MERGE: existing lowStockThreshold: ${existingItem.lowStockThreshold}');
+        print('DEBUG MERGE: lowStockThreshold parsed value: $lowStockValue');
+        
         final updatedItem = Stocks(
           id: existingItem.id,
           itemName: existingItem.itemName,
@@ -213,6 +232,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           stockPrice: _parsePrice(_stockPriceController.text) ?? existingItem.stockPrice,
           sellPrice: _parsePrice(_sellPriceController.text) ?? existingItem.sellPrice,
           unit: _unitController.value ?? existingItem.unit,
+          lowStockThreshold: lowStockValue,
           createdAt: existingItem.createdAt,
         );
         
@@ -242,6 +262,10 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           return;
         }
         
+        final lowStockValue = _lowStockThresholdController.text.trim().isEmpty ? null : int.tryParse(_lowStockThresholdController.text.trim());
+        print('DEBUG: lowStockThreshold controller text: "${_lowStockThresholdController.text}"');
+        print('DEBUG: lowStockThreshold parsed value: $lowStockValue');
+        
         final newItem = Stocks(
           id: null,
           itemName: itemName,
@@ -251,8 +275,11 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           stockPrice: _parsePrice(_stockPriceController.text),
           sellPrice: _parsePrice(_sellPriceController.text),
           unit: _unitController.value,
+          lowStockThreshold: lowStockValue,
           createdAt: DateTime.now(),
         );
+        
+        print('DEBUG: newItem.lowStockThreshold: ${newItem.lowStockThreshold}');
         
         await _firebaseService.addStock(newItem);
         widget.onItemSaved?.call(newItem);
@@ -411,7 +438,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                           child: _buildSelect(
                             label: 'Unit',
                             controller: _unitController,
-                            items: {for (var unit in _units) unit: unit},
+                            items: _units,
                             hint: 'Select unit',
                             prefixIcon: Icons.straighten,
                           ),
@@ -461,6 +488,24 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Low Stock Threshold
+                    _buildTextField(
+                      label: 'Low Stock Warning Threshold',
+                      controller: _lowStockThresholdController,
+                      hint: 'Enter threshold quantity',
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value?.isNotEmpty == true) {
+                          final threshold = int.tryParse(value!);
+                          if (threshold == null) return 'Enter valid number';
+                          if (threshold < 0) return 'Threshold cannot be negative';
+                        }
+                        return null;
+                      },
+                      prefixIcon: Icons.warning_amber,
                     ),
                     const SizedBox(height: 24),
 
@@ -579,7 +624,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
   Widget _buildSelect({
     required String label,
     required FSelectController<String> controller,
-    required Map<String, String> items,
+    required List<String> items,
     required String hint,
     IconData? prefixIcon,
   }) {
@@ -591,16 +636,30 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 8),
-        FSelect<String>(
-          expands: false,
+        FSelect<String>.rich(
+          control: .managed(
+            controller: controller,
+            onChange: (value) {
+              controller.value = value;
+            },
+          ),
           hint: hint,
-          items: items,
-          prefixBuilder: prefixIcon != null 
-            ? (context, style, states) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Icon(prefixIcon, size: 20),
-              )
-            : null,
+          format: (value) => value,
+          children: [
+            for (final item in items)
+              FSelectItem(
+                title: Row(
+                  children: [
+                    if (prefixIcon != null) ...[
+                      Icon(prefixIcon, size: 20),
+                      const SizedBox(width: 8),
+                    ],
+                    Text(item),
+                  ],
+                ),
+                value: item,
+              ),
+          ],
         ),
       ],
     );

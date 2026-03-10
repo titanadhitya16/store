@@ -163,6 +163,7 @@ class _SellFormState extends State<SellForm> {
           stockPrice: sellItem.stock.stockPrice,
           sellPrice: sellItem.stock.sellPrice,
           unit: sellItem.stock.unit,
+          lowStockThreshold: sellItem.stock.lowStockThreshold,
           createdAt: sellItem.stock.createdAt,
         );
 

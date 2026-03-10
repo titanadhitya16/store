@@ -30,8 +30,8 @@ class _HomeState extends State<Home> {
         stream: _firebaseService.getStocksStream(),
         builder: (context, inventorySnapshot) {
           final inventory = inventorySnapshot.data ?? [];
-          final lowStock = inventory.where((item) => item.itemCount > 0 && item.itemCount < 10).length;
-          final outOfStock = inventory.where((item) => item.itemCount == 0).length;
+          final lowStock = inventory.where((item) => item.isLowStock).length;
+          final outOfStock = inventory.where((item) => item.isOutOfStock).length;
           
           return StreamBuilder<List<Sale>>(
             stream: _salesService.getSalesByDate(selectedDate ?? DateTime.now()),

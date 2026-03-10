@@ -30,20 +30,20 @@ class StockListView extends StatelessWidget {
         final item = items[index];
         
         Color getCountColor() {
-          if (item.itemCount == 0) return Colors.red;
-          if (item.itemCount < 10) return Colors.orange;
+          if (item.isOutOfStock) return Colors.red;
+          if (item.isLowStock) return Colors.orange;
           return Colors.green;
         }
 
         IconData getStockIcon() {
-          if (item.itemCount == 0) return Icons.cancel_rounded;
-          if (item.itemCount < 10) return Icons.warning_amber_rounded;
+          if (item.isOutOfStock) return Icons.cancel_rounded;
+          if (item.isLowStock) return Icons.warning_amber_rounded;
           return Icons.check_circle_rounded;
         }
 
         String getStockStatus() {
-          if (item.itemCount == 0) return 'Out of Stock';
-          if (item.itemCount < 10) return 'Low Stock';
+          if (item.isOutOfStock) return 'Out of Stock';
+          if (item.isLowStock) return 'Low Stock';
           return 'In Stock';
         }
 
@@ -185,14 +185,14 @@ class _StorageState extends State<Storage> {
     final TextEditingController quantityController = TextEditingController();
     
     Color getStockColor() {
-      if (item.itemCount == 0) return Colors.red;
-      if (item.itemCount < 10) return Colors.orange;
+      if (item.isOutOfStock) return Colors.red;
+      if (item.isLowStock) return Colors.orange;
       return Colors.green;
     }
 
     String getStockStatus() {
-      if (item.itemCount == 0) return 'Out of Stock';
-      if (item.itemCount < 10) return 'Low Stock';
+      if (item.isOutOfStock) return 'Out of Stock';
+      if (item.isLowStock) return 'Low Stock';
       return 'In Stock';
     }
 
@@ -377,6 +377,7 @@ class _StorageState extends State<Storage> {
                             stockPrice: item.stockPrice,
                             sellPrice: item.sellPrice,
                             unit: item.unit,
+                            lowStockThreshold: item.lowStockThreshold,
                             createdAt: item.createdAt,
                           );
                           
@@ -553,13 +554,13 @@ class _StorageState extends State<Storage> {
     // Apply stock status filter
     switch (selectedFilter) {
       case StockFilter.inStock:
-        filtered = filtered.where((item) => item.itemCount >= 10).toList();
+        filtered = filtered.where((item) => item.isInStock).toList();
         break;
       case StockFilter.lowStock:
-        filtered = filtered.where((item) => item.itemCount > 0 && item.itemCount < 10).toList();
+        filtered = filtered.where((item) => item.isLowStock).toList();
         break;
       case StockFilter.outOfStock:
-        filtered = filtered.where((item) => item.itemCount == 0).toList();
+        filtered = filtered.where((item) => item.isOutOfStock).toList();
         break;
       case StockFilter.all:
         break;
