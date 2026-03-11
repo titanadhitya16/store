@@ -18,6 +18,7 @@ final headers = [
 
 final contents = [
   const Home(),
+
   const Storage(),
   const Settings(),
 ];

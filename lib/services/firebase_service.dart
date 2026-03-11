@@ -74,15 +74,16 @@ class FirebaseService {
           itemName: stock.itemName,
         );
       }
-      // Check if stock just became low (threshold: 10)
-      else if (previousStock != null && 
-               previousStock.itemCount >= 10 && 
-               stock.itemCount < 10 && 
-               stock.itemCount > 0) {
-        await _notificationService.showLowStockNotification(
-          itemName: stock.itemName,
-          quantity: stock.itemCount,
-        );
+      // Check if stock just became low (using item-specific threshold)
+      else if (previousStock != null && stock.itemCount > 0) {
+        final threshold = stock.lowStockThreshold ?? 10;
+        if (previousStock.itemCount > threshold && 
+            stock.itemCount <= threshold) {
+          await _notificationService.showLowStockNotification(
+            itemName: stock.itemName,
+            quantity: stock.itemCount,
+          );
+        }
       }
     } catch (e) {
       throw Exception('Failed to update stock: $e');
@@ -117,15 +118,16 @@ class FirebaseService {
           itemName: previousStock.itemName,
         );
       }
-      // Check if stock just became low (threshold: 10)
-      else if (previousStock != null && 
-               previousStock.itemCount >= 10 && 
-               newQuantity < 10 && 
-               newQuantity > 0) {
-        await _notificationService.showLowStockNotification(
-          itemName: previousStock.itemName,
-          quantity: newQuantity,
-        );
+      // Check if stock just became low (using item-specific threshold)
+      else if (previousStock != null && newQuantity > 0) {
+        final threshold = previousStock.lowStockThreshold ?? 10;
+        if (previousStock.itemCount > threshold && 
+            newQuantity <= threshold) {
+          await _notificationService.showLowStockNotification(
+            itemName: previousStock.itemName,
+            quantity: newQuantity,
+          );
+        }
       }
     } catch (e) {
       throw Exception('Failed to update stock quantity: $e');
