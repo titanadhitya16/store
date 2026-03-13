@@ -3,9 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:camera/camera.dart';
 import 'package:forui/forui.dart';
-import 'package:storehsk/widgets/item_form.dart';
+import 'package:storehsk/widgets/quick_item_dialog.dart';
+import 'package:storehsk/widgets/quick_sell_dialog.dart';
 import 'package:storehsk/models/stocks.dart';
+import 'package:storehsk/services/firebase_service.dart';
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
+
+final FirebaseService _firebaseService = FirebaseService();
 
 class CameraScanner extends StatefulWidget {
   final Function(Stocks)? onItemDetected;
@@ -152,17 +156,12 @@ class _CameraScannerState extends State<CameraScanner> {
           if (barcodes.isNotEmpty) {
             final String scannedValue = barcodes.first.rawValue ?? '';
             _statusMessage = 'Barcode detected: $scannedValue';
-            
-            // Auto-open form only if it's a new barcode
-            if (!_formOpened && scannedValue.isNotEmpty && scannedValue != _lastScannedBarcode) {
-              _formOpened = true;
-              _lastScannedBarcode = scannedValue;
-              Future.delayed(Duration.zero, () {
-                _openFormWithDetectedBarcode(scannedValue);
-              });
-            }
           } else {
             _statusMessage = 'Scanning for barcodes...';
+            // Reset form state when no barcode is detected
+            if (!_formOpened) {
+              _lastScannedBarcode = '';
+            }
           }
         });
       }
@@ -173,68 +172,101 @@ class _CameraScannerState extends State<CameraScanner> {
 
   void _showBarcodeDialog(Barcode barcode) {
     final String barcodeValue = barcode.rawValue ?? 'Unknown';
-    final String barcodeType = barcode.format.name;
-
-    showFDialog(
-      context: context,
-      builder: (context, style, animation) => FDialog(
-        title: const Text('Barcode Detected'),
-        body: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Value: $barcodeValue'),
-            Text('Type: $barcodeType'),
-            const SizedBox(height: 16),
-            const Text('What would you like to do?'),
-          ],
-        ),
-        actions: [
-          FButton(
-            onPress: () {
-              Navigator.pop(context);
-              _formOpened = false; // Allow scanning again
-              _lastScannedBarcode = ''; // Reset
-            },
-            child: const Text('Continue Scanning'),
-          ),
-          FButton(
-            onPress: () {
-              Navigator.pop(context);
-              Navigator.pop(context); // Close camera screen
-            },
-            child: const Text('Cancel'),
-          ),
-          FButton(
-            onPress: () {
-              Navigator.pop(context);
-              _openFormWithDetectedBarcode(barcodeValue);
-            },
-            child: const Text('Add to Inventory'),
-          ),
-        ],
-      ),
-    );
+    
+    debugPrint('Button tapped with barcode: $barcodeValue');
+    debugPrint('Form opened: $_formOpened, Last scanned: $_lastScannedBarcode');
+    
+    // Prevent duplicate processing only if form is currently visible
+    // Allow re-opening if user closed the form and scans again
+    if (_formOpened) {
+      debugPrint('Form already open, ignoring button press');
+      return;
+    }
+    
+    _formOpened = true;
+    _lastScannedBarcode = barcodeValue;
+    
+    // Process the barcode
+    _showBarcodeOptionsDialog(barcodeValue);
   }
 
-  void _openFormWithDetectedBarcode(String barcodeValue) {
-    // Pause camera stream while showing form
+  Future<void> _showBarcodeOptionsDialog(String barcodeValue) async {
+    // Pause camera stream while checking database
     _cameraController?.stopImageStream();
 
-    showItemFormSheet(
+    debugPrint('Checking database for barcode: $barcodeValue');
+    
+    // First check if barcode exists in database
+    final existingItemByBarcode = await _firebaseService.findStockByBarcode(barcodeValue);
+
+    if (!mounted) {
+      // Reset state if widget was disposed
+      _formOpened = false;
+      _lastScannedBarcode = '';
+      return;
+    }
+
+    if (existingItemByBarcode != null) {
+      debugPrint('Item with barcode exists: ${existingItemByBarcode.itemName}, opening sell dialog');
+      // Item with this barcode exists - open sell dialog
+      _openSellForm(existingItemByBarcode);
+    } else {
+      debugPrint('Barcode not found in database, opening new item dialog');
+      // Barcode doesn't exist - open new item dialog with barcode pre-filled
+      _openNewItemForm(barcodeValue);
+    }
+  }
+
+  void _openSellForm(Stocks scannedItem) async {
+    debugPrint('Opening sell dialog for: ${scannedItem.itemName}');
+    
+    final result = await showQuickSellDialog(
       context,
-      itemName: barcodeValue,
+      item: scannedItem,
+      onSaleCompleted: (sale) {
+        // Sale completed callback
+      },
+    );
+    
+    // Reset state after dialog closes
+    if (mounted) {
+      setState(() {
+        _formOpened = false;
+        _lastScannedBarcode = '';
+      });
+    }
+    
+    // Restart camera stream
+    if (_cameraController != null &&
+        _cameraController!.value.isInitialized) {
+      _startImageStream();
+    }
+  }
+
+  void _openNewItemForm(String barcodeValue) async {
+    debugPrint('Opening new item dialog with barcode: $barcodeValue');
+    
+    final result = await showQuickItemDialog(
+      context,
+      barcode: barcodeValue,
       onItemSaved: (newItem) {
         widget.onItemDetected?.call(newItem);
-        _formOpened = false; // Reset flag to allow another scan
-        _lastScannedBarcode = ''; // Reset last scanned barcode
-        // Restart camera stream
-        if (_cameraController != null &&
-            _cameraController!.value.isInitialized) {
-          _startImageStream();
-        }
-      }
+      },
     );
+    
+    // Reset state after dialog closes
+    if (mounted) {
+      setState(() {
+        _formOpened = false;
+        _lastScannedBarcode = '';
+      });
+    }
+    
+    // Restart camera stream
+    if (_cameraController != null &&
+        _cameraController!.value.isInitialized) {
+      _startImageStream();
+    }
   }
 
   @override
@@ -249,10 +281,6 @@ class _CameraScannerState extends State<CameraScanner> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Barcode Scanner'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
       body: _cameraController == null || !_cameraController!.value.isInitialized
           ? Center(
               child: Column(
@@ -315,7 +343,7 @@ class _CameraScannerState extends State<CameraScanner> {
                         ),
                         if (!_formOpened)
                           Text(
-                            'Point camera at a barcode',
+                            'Scan barcode and tap "Add to Inventory"',
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.9),
                               fontSize: 12,
@@ -378,6 +406,22 @@ class _CameraScannerState extends State<CameraScanner> {
                     ),
                   ),
 
+                // Back button
+                Positioned(
+                  top: 16,
+                  left: 16,
+                  child: SafeArea(
+                    child: IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.arrow_back),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black.withOpacity(0.5),
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+
                 // Add to inventory button
                 if (_barcodes.isNotEmpty)
                   Positioned(
@@ -390,12 +434,16 @@ class _CameraScannerState extends State<CameraScanner> {
                           _showBarcodeDialog(_barcodes.first);
                         }
                       },
-                      style: .delta(contentStyle: .delta(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12))),
-                      prefix: const Icon(FIcons.check),
-                      child: const Text('Add to Inventory'),
+                      style: .delta(contentStyle: .delta(padding: const EdgeInsets.symmetric(vertical: 14))),
+                      prefix: const Icon(FIcons.database),
+                      child: const Text(
+                        'Add to Inventory',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
               ],
+
             ),
     );
   }

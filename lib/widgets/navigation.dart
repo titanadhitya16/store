@@ -4,12 +4,14 @@ import 'package:storehsk/screens/storage.dart';
 import 'package:storehsk/screens/home.dart';
 import 'package:storehsk/screens/camera_scanner.dart';
 import 'package:storehsk/screens/settings.dart';
+import 'package:storehsk/screens/AI_chatbot.dart';
 import 'package:storehsk/widgets/item_form.dart';
 import 'package:storehsk/widgets/sell_form.dart';
   
 final headers = [
   const FHeader(),
-  const FHeader( title: Text('Storage'),),
+  const FHeader(title: Text('Storage')),
+  const FHeader(title: Text('AI Assistant')),
   FHeader(
     title: const Text('Settings'),
     suffixes: [FHeaderAction(icon: const Icon(FIcons.ellipsis), onPress: () {})],
@@ -18,8 +20,8 @@ final headers = [
 
 final contents = [
   const Home(),
-
   const Storage(),
+  const AIChatbot(),
   const Settings(),
 ];
 
@@ -190,6 +192,7 @@ class _NavigationState extends State<Navigation> {
       children: const [
         FBottomNavigationBarItem(icon: Icon(FIcons.house), label: Text('Home')),
         FBottomNavigationBarItem(icon: Icon(FIcons.warehouse), label: Text('Storage')),
+        FBottomNavigationBarItem(icon: Icon(FIcons.sparkles), label: Text('AI')),
         FBottomNavigationBarItem(icon: Icon(FIcons.settings), label: Text('Settings')),
       ],
     ),

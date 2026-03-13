@@ -5,6 +5,7 @@ import 'firebase_options.dart';
 import 'widgets/navigation.dart';
 import 'services/notification_service.dart';
 import 'services/preferences_service.dart';
+import 'package:firebase_ai/firebase_ai.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -125,7 +126,10 @@ class _ApplicationState extends State<Application> {
       localizationsDelegates: const [...FLocalizations.localizationsDelegates],
       debugShowCheckedModeBanner: false,
       theme: theme.toApproximateMaterialTheme(),
-      builder: (_, child) => FTheme(data: theme, child: child!),
+      builder: (_, child) => FTheme(
+        data: theme, 
+        child: FToaster(child: child!)
+        ),
       home: FScaffold(
         resizeToAvoidBottomInset: false,
         child: ThemeManager(

@@ -17,6 +17,7 @@ class Stocks {
   final double? stockPrice;  // Cost price (buying price)
   final double? sellPrice;   // Selling price
   final String? unit;
+  final String? barcode;     // Barcode/QR code for the item
   final int? lowStockThreshold;  // Threshold for low stock warning
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -31,6 +32,7 @@ class Stocks {
     this.stockPrice,
     this.sellPrice,
     this.unit,
+    this.barcode,
     this.lowStockThreshold,
     this.createdAt,
     this.updatedAt,
@@ -47,12 +49,11 @@ class Stocks {
       'stockPrice': stockPrice,
       'sellPrice': sellPrice,
       'unit': unit,
+      'barcode': barcode,
       'lowStockThreshold': lowStockThreshold,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
-    print('DEBUG toFirestore: lowStockThreshold = $lowStockThreshold');
-    print('DEBUG toFirestore: data = $data');
     return data;
   }
 
@@ -69,6 +70,7 @@ class Stocks {
       stockPrice: data['stockPrice']?.toDouble(),
       sellPrice: data['sellPrice']?.toDouble(),
       unit: data['unit'],
+      barcode: data['barcode'],
       lowStockThreshold: data['lowStockThreshold']?.toInt(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
@@ -127,6 +129,7 @@ class Stocks {
     double? stockPrice,
     double? sellPrice,
     String? unit,
+    String? barcode,
     int? lowStockThreshold,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -141,6 +144,7 @@ class Stocks {
       stockPrice: stockPrice ?? this.stockPrice,
       sellPrice: sellPrice ?? this.sellPrice,
       unit: unit ?? this.unit,
+      barcode: barcode ?? this.barcode,
       lowStockThreshold: lowStockThreshold ?? this.lowStockThreshold,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

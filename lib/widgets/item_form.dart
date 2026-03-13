@@ -48,6 +48,7 @@ class ThousandsSeparatorInputFormatter extends TextInputFormatter {
 class ItemFormContent extends StatefulWidget {
   final Stocks? item;
   final String? initialItemName;
+  final String? initialBarcode;
   final Function(Stocks)? onItemSaved;
   final VoidCallback? onItemDeleted;
   final FPersistentSheetController controller;
@@ -56,6 +57,7 @@ class ItemFormContent extends StatefulWidget {
     super.key,
     this.item,
     this.initialItemName,
+    this.initialBarcode,
     this.onItemSaved,
     this.onItemDeleted,
     required this.controller,
@@ -72,6 +74,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
   final _stockPriceController = TextEditingController();
   final _sellPriceController = TextEditingController();
   final _lowStockThresholdController = TextEditingController();
+  final _barcodeController = TextEditingController();
   
   late FSelectController<String> _unitController;
   
@@ -94,8 +97,13 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
     
     if (widget.item != null) {
       _populateForm(widget.item!);
-    } else if (widget.initialItemName != null) {
-      _itemNameController.text = widget.initialItemName!;
+    } else {
+      if (widget.initialItemName != null) {
+        _itemNameController.text = widget.initialItemName!;
+      }
+      if (widget.initialBarcode != null) {
+        _barcodeController.text = widget.initialBarcode!;
+      }
     }
   }
 
@@ -121,6 +129,10 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
     if (item.unit != null) {
       _unitController.value = item.unit;
     }
+    
+    if (item.barcode != null) {
+      _barcodeController.text = item.barcode!;
+    }
   }
 
   @override
@@ -130,6 +142,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
     _stockPriceController.dispose();
     _sellPriceController.dispose();
     _lowStockThresholdController.dispose();
+    _barcodeController.dispose();
     _unitController.dispose();
     super.dispose();
   }
@@ -177,6 +190,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           stockPrice: _parsePrice(_stockPriceController.text),
           sellPrice: _parsePrice(_sellPriceController.text),
           unit: _unitController.value,
+          barcode: _barcodeController.text.trim().isEmpty ? null : _barcodeController.text.trim(),
           lowStockThreshold: lowStockValue,
           createdAt: widget.item!.createdAt,
         );
@@ -232,6 +246,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           stockPrice: _parsePrice(_stockPriceController.text) ?? existingItem.stockPrice,
           sellPrice: _parsePrice(_sellPriceController.text) ?? existingItem.sellPrice,
           unit: _unitController.value ?? existingItem.unit,
+          barcode: _barcodeController.text.trim().isEmpty ? existingItem.barcode : _barcodeController.text.trim(),
           lowStockThreshold: lowStockValue,
           createdAt: existingItem.createdAt,
         );
@@ -275,6 +290,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           stockPrice: _parsePrice(_stockPriceController.text),
           sellPrice: _parsePrice(_sellPriceController.text),
           unit: _unitController.value,
+          barcode: _barcodeController.text.trim().isEmpty ? null : _barcodeController.text.trim(),
           lowStockThreshold: lowStockValue,
           createdAt: DateTime.now(),
         );
@@ -408,6 +424,15 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                         return null;
                       },
                       prefixIcon: Icons.inventory,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Barcode
+                    _buildTextField(
+                      label: 'Barcode',
+                      controller: _barcodeController,
+                      hint: 'Enter or scan barcode',
+                      prefixIcon: Icons.qr_code,
                     ),
                     const SizedBox(height: 16),
 
@@ -671,6 +696,7 @@ FPersistentSheetController showItemFormSheet(
   BuildContext context, {
   Stocks? item,
   String? itemName,
+  String? barcode,
   Function(Stocks)? onItemSaved,
   VoidCallback? onItemDeleted,
 }) {
@@ -683,6 +709,7 @@ FPersistentSheetController showItemFormSheet(
     builder: (context, controller) => ItemFormContent(
       item: item,
       initialItemName: itemName,
+      initialBarcode: barcode,
       onItemSaved: onItemSaved,
       onItemDeleted: onItemDeleted,
       controller: controller,

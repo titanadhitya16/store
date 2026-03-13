@@ -18,6 +18,8 @@ class SellItem {
 
 void showSellFormSheet(
   BuildContext context, {
+  Stocks? scannedItem,
+  String? scannedBarcode,
   Function(List<Sale>)? onSaleCompleted,
 }) {
   showFPersistentSheet(
@@ -27,6 +29,8 @@ void showSellFormSheet(
     mainAxisMaxRatio: null,
     builder: (context, controller) => SellForm(
       controller: controller,
+      scannedItem: scannedItem,
+      scannedBarcode: scannedBarcode,
       onSaleCompleted: onSaleCompleted,
     ),
   );
@@ -34,11 +38,15 @@ void showSellFormSheet(
 
 class SellForm extends StatefulWidget {
   final FPersistentSheetController controller;
+  final Stocks? scannedItem;
+  final String? scannedBarcode;
   final Function(List<Sale>)? onSaleCompleted;
 
   const SellForm({
     super.key,
     required this.controller,
+    this.scannedItem,
+    this.scannedBarcode,
     this.onSaleCompleted,
   });
 
@@ -53,6 +61,7 @@ class _SellFormState extends State<SellForm> {
   DateTime _saleDate = DateTime.now();
   bool _isLoading = false;
   String _searchQuery = '';
+  bool _hasInitializedScannedItem = false;
 
   @override
   void dispose() {
@@ -163,6 +172,7 @@ class _SellFormState extends State<SellForm> {
           stockPrice: sellItem.stock.stockPrice,
           sellPrice: sellItem.stock.sellPrice,
           unit: sellItem.stock.unit,
+          barcode: sellItem.stock.barcode,
           lowStockThreshold: sellItem.stock.lowStockThreshold,
           createdAt: sellItem.stock.createdAt,
         );
@@ -339,6 +349,42 @@ class _SellFormState extends State<SellForm> {
                     (_searchQuery.isEmpty || 
                      item.itemName.toLowerCase().contains(_searchQuery))
                   ).toList();
+                  
+                  // Pre-select scanned item if provided
+                  if (!_hasInitializedScannedItem && (widget.scannedItem != null || widget.scannedBarcode != null)) {
+                    _hasInitializedScannedItem = true;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      Stocks? itemToSelect;
+                      
+                      if (widget.scannedItem != null) {
+                        itemToSelect = items.firstWhere(
+                          (item) => item.id == widget.scannedItem!.id,
+                          orElse: () => items.first,
+                        );
+                      } else if (widget.scannedBarcode != null) {
+                        itemToSelect = items.firstWhere(
+                          (item) => item.barcode == widget.scannedBarcode,
+                          orElse: () => items.first,
+                        );
+                      }
+                      
+                      if (itemToSelect != null && itemToSelect.id != null) {
+                        setState(() {
+                          if (!_selectedItems.containsKey(itemToSelect!.id)) {
+                            _selectedItems[itemToSelect.id!] = SellItem(stock: itemToSelect, quantityToSell: 1);
+                          } else {
+                            _selectedItems[itemToSelect.id!]!.quantityToSell = 1;
+                          }
+                          
+                          if (!_quantityControllers.containsKey(itemToSelect.id)) {
+                            _quantityControllers[itemToSelect.id!] = TextEditingController(text: '1');
+                          } else {
+                            _quantityControllers[itemToSelect.id]!.text = '1';
+                          }
+                        });
+                      }
+                    });
+                  }
 
                   if (items.isEmpty) {
                     return Center(
