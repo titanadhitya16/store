@@ -160,7 +160,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
     if (_itemNameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter an item name'),
+          content: Text('Masukkan nama item terlebih dahulu'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -178,9 +178,6 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
       // If editing an existing item, just update it normally
       if (widget.item != null) {
         final lowStockValue = _lowStockThresholdController.text.trim().isEmpty ? null : int.tryParse(_lowStockThresholdController.text.trim());
-        print('DEBUG UPDATE: lowStockThreshold controller text: "${_lowStockThresholdController.text}"');
-        print('DEBUG UPDATE: lowStockThreshold parsed value: $lowStockValue');
-        
         final updatedItem = Stocks(
           id: widget.item!.id,
           itemName: itemName,
@@ -203,7 +200,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           widget.controller.hide();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Item updated successfully!'),
+              content: Text('Item berhasil diperbarui!'),
               backgroundColor: Colors.green,
             ),
           );
@@ -222,7 +219,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Cannot reduce quantity below 0'),
+                content: Text('Tidak dapat mengurangi item melebihi jumlah yang ada'),
                 backgroundColor: Colors.orange,
               ),
             );
@@ -233,9 +230,6 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
         final lowStockValue = _lowStockThresholdController.text.trim().isEmpty 
             ? existingItem.lowStockThreshold 
             : int.tryParse(_lowStockThresholdController.text.trim());
-        print('DEBUG MERGE: lowStockThreshold controller text: "${_lowStockThresholdController.text}"');
-        print('DEBUG MERGE: existing lowStockThreshold: ${existingItem.lowStockThreshold}');
-        print('DEBUG MERGE: lowStockThreshold parsed value: $lowStockValue');
         
         final updatedItem = Stocks(
           id: existingItem.id,
@@ -258,7 +252,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           widget.controller.hide();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Quantity updated: ${existingItem.itemCount} → $mergedQuantity'),
+              content: Text('Kuantitas diperbarui: ${existingItem.itemCount} → $mergedQuantity'),
               backgroundColor: Colors.blue,
             ),
           );
@@ -269,7 +263,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Cannot add item with negative quantity'),
+                content: Text('Tidak dapat menambahkan item dengan kuantitas negatif'),
                 backgroundColor: Colors.orange,
               ),
             );
@@ -278,8 +272,6 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
         }
         
         final lowStockValue = _lowStockThresholdController.text.trim().isEmpty ? null : int.tryParse(_lowStockThresholdController.text.trim());
-        print('DEBUG: lowStockThreshold controller text: "${_lowStockThresholdController.text}"');
-        print('DEBUG: lowStockThreshold parsed value: $lowStockValue');
         
         final newItem = Stocks(
           id: null,
@@ -295,8 +287,6 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           createdAt: DateTime.now(),
         );
         
-        print('DEBUG: newItem.lowStockThreshold: ${newItem.lowStockThreshold}');
-        
         await _firebaseService.addStock(newItem);
         widget.onItemSaved?.call(newItem);
         
@@ -305,7 +295,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
           
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Item added successfully!'),
+              content: Text('Item berhasil ditambahkan!'),
               backgroundColor: Colors.green,
             ),
           );
@@ -315,7 +305,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error saving item: $e'),
+            content: Text('Error menyimpan item: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -325,52 +315,6 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
         setState(() {
           _isLoading = false;
         });
-      }
-    }
-  }
-
-  Future<void> _deleteItem() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Item'),
-        content: const Text('Are you sure you want to delete this item? This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && widget.item?.id != null) {
-      try {
-        await _firebaseService.deleteStock(widget.item!.id!);
-        widget.onItemDeleted?.call();
-        if (mounted) {
-          widget.controller.hide();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Item deleted successfully!'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error deleting item: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
       }
     }
   }
@@ -391,8 +335,6 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.item != null;
-    
     return Material(
       color: Colors.transparent,
       child: Container(
@@ -416,11 +358,11 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                   children: [
                     // Item Name
                     _buildTextField(
-                      label: 'Item Name *',
+                      label: 'Nama Item *',
                       controller: _itemNameController,
-                      hint: 'Enter item name',
+                      hint: 'Masukkan nama item',
                       validator: (value) {
-                        if (value?.isEmpty == true) return 'Item name is required';
+                        if (value?.isEmpty == true) return 'Nama item diperlukan';
                         return null;
                       },
                       prefixIcon: Icons.inventory,
@@ -431,7 +373,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                     _buildTextField(
                       label: 'Barcode',
                       controller: _barcodeController,
-                      hint: 'Enter or scan barcode',
+                      hint: 'Masukkan atau pindai barcode',
                       prefixIcon: Icons.qr_code,
                     ),
                     const SizedBox(height: 16),
@@ -446,13 +388,13 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                         Expanded(
                           flex: 2,
                           child: _buildTextField(
-                            label: 'Quantity *',
+                            label: 'Jumlah *',
                             controller: _quantityController,
                             hint: '0',
                             keyboardType: const TextInputType.numberWithOptions(signed: true),
                             validator: (value) {
-                              if (value?.isEmpty == true) return 'Quantity is required';
-                              if (int.tryParse(value!) == null) return 'Enter valid number';
+                              if (value?.isEmpty == true) return 'Jumlah diperlukan';
+                              if (int.tryParse(value!) == null) return 'Masukkan angka yang valid';
                               return null;
                             },
                             prefixIcon: Icons.numbers,
@@ -464,7 +406,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                             label: 'Unit',
                             controller: _unitController,
                             items: _units,
-                            hint: 'Select unit',
+                            hint: 'Pilih unit',
                             prefixIcon: Icons.straighten,
                           ),
                         ),
@@ -477,7 +419,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                       children: [
                         Expanded(
                           child: _buildTextField(
-                            label: 'Stock Price (Cost)',
+                            label: 'Harga Stok (Biaya)',
                             controller: _stockPriceController,
                             hint: '0',
                             keyboardType: TextInputType.number,
@@ -485,8 +427,8 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                             validator: (value) {
                               if (value?.isNotEmpty == true) {
                                 final price = _parsePrice(value!);
-                                if (price == null) return 'Enter valid price';
-                                if (price < 0) return 'Price cannot be negative';
+                                if (price == null) return 'Masukkan harga yang valid';
+                                if (price < 0) return 'Harga tidak boleh negatif';
                               }
                               return null;
                             },
@@ -496,7 +438,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                         const SizedBox(width: 12),
                         Expanded(
                           child: _buildTextField(
-                            label: 'Sell Price',
+                            label: 'Harga Jual',
                             controller: _sellPriceController,
                             hint: '0',
                             keyboardType: TextInputType.number,
@@ -504,8 +446,8 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                             validator: (value) {
                               if (value?.isNotEmpty == true) {
                                 final price = _parsePrice(value!);
-                                if (price == null) return 'Enter valid price';
-                                if (price < 0) return 'Price cannot be negative';
+                                if (price == null) return 'Masukkan harga yang valid';
+                                if (price < 0) return 'Harga tidak boleh negatif';
                               }
                               return null;
                             },
@@ -518,15 +460,15 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
 
                     // Low Stock Threshold
                     _buildTextField(
-                      label: 'Low Stock Warning Threshold',
+                      label: 'Batas Stok Rendah',
                       controller: _lowStockThresholdController,
-                      hint: 'Enter threshold quantity',
+                      hint: 'Masukkan jumlah threshold untuk peringatan stok rendah',
                       keyboardType: TextInputType.number,
                       validator: (value) {
                         if (value?.isNotEmpty == true) {
                           final threshold = int.tryParse(value!);
-                          if (threshold == null) return 'Enter valid number';
-                          if (threshold < 0) return 'Threshold cannot be negative';
+                          if (threshold == null) return 'Masukkan angka yang valid';
+                          if (threshold < 0) return 'Threshold tidak boleh negatif';
                         }
                         return null;
                       },

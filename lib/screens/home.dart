@@ -19,10 +19,6 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> {
   DateTime? selectedDate = DateTime.now();
 
-  String _formatDateKey(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context) {
     return FScaffold(
@@ -42,13 +38,11 @@ class _HomeState extends State<Home> {
               double actualProfit = 0.0;
               int itemsSold = 0;
               double totalRevenue = 0.0;
-              double totalCost = 0.0;
               
               for (var sale in sales) {
                 actualProfit += sale.profit;
                 itemsSold += sale.quantitySold;
                 totalRevenue += sale.sellPrice * sale.quantitySold;
-                totalCost += sale.stockPrice * sale.quantitySold;
               }
               
               final profitMargin = totalRevenue > 0 ? (actualProfit / totalRevenue) * 100 : 0.0;

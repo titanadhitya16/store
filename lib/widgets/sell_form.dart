@@ -22,6 +22,7 @@ void showSellFormSheet(
   String? scannedBarcode,
   Function(List<Sale>)? onSaleCompleted,
 }) {
+  // ignore: unused_result
   showFPersistentSheet(
     context: context,
     side: FLayout.btt,
@@ -86,8 +87,8 @@ class _SellFormState extends State<SellForm> {
           context: context,
           style: .delta(padding: EdgeInsets.all(16)),
           icon: const Icon(FIcons.triangleAlert, color: Colors.orange),
-          title: const Text('No Items Selected'),
-          description: const Text('Please select items and quantities to sell'),
+          title: const Text('Tidak ada item yang dipilih'),
+          description: const Text('Silakan pilih item dan jumlah untuk dijual'),
           suffixBuilder: (context, entry) =>
               GestureDetector(onTap: entry.dismiss, child: const Icon(FIcons.x)),
           alignment: .topCenter,
@@ -105,8 +106,8 @@ class _SellFormState extends State<SellForm> {
             context: context,
             style: .delta(padding: EdgeInsets.all(16)),
             icon: const Icon(FIcons.triangleAlert, color: Colors.orange),
-            title: const Text('Insufficient Stock'),
-            description: Text('${sellItem.stock.itemName}: Only ${sellItem.stock.itemCount} available'),
+            title: const Text('Stok Tidak Cukup'),
+            description: Text('${sellItem.stock.itemName}: Hanya tersedia ${sellItem.stock.itemCount}'),
             suffixBuilder: (context, entry) =>
                 GestureDetector(onTap: entry.dismiss, child: const Icon(FIcons.x)),
             alignment: .topCenter,
@@ -122,8 +123,8 @@ class _SellFormState extends State<SellForm> {
             context: context,
             style: .delta(padding: EdgeInsets.all(16)),
             icon: const Icon(FIcons.triangleAlert, color: Colors.orange),
-            title: const Text('Missing Prices'),
-            description: Text('${sellItem.stock.itemName}: Stock price and sell price are required'),
+            title: const Text('Harga Tidak Lengkap'),
+            description: Text('${sellItem.stock.itemName}: Harga stok dan harga jual diperlukan'),
             suffixBuilder: (context, entry) =>
                 GestureDetector(onTap: entry.dismiss, child: const Icon(FIcons.x)),
             alignment: .topCenter,
@@ -191,8 +192,8 @@ class _SellFormState extends State<SellForm> {
               context: context,
               style: .delta(padding: EdgeInsets.all(16)),
               icon: const Icon(FIcons.check, color: Colors.green),
-              title: const Text('Sales Completed'),
-              description: Text('${completedSales.length} item(s) sold successfully'),
+              title: const Text('Penjualan Selesai'),
+              description: Text('${completedSales.length} item(s) terjual berhasil'),
               suffixBuilder: (context, entry) =>
                   GestureDetector(onTap: entry.dismiss, child: const Icon(FIcons.x)),
               alignment: .topCenter,
@@ -208,7 +209,7 @@ class _SellFormState extends State<SellForm> {
           style: .delta(padding: EdgeInsets.all(16)),
           icon: const Icon(FIcons.circleAlert, color: Colors.red),
           title: const Text('Error'),
-          description: Text('Failed to process sales: $e'),
+          description: Text('Gagal untuk memproses penjualan: $e'),
           suffixBuilder: (context, entry) =>
               GestureDetector(onTap: entry.dismiss, child: const Icon(FIcons.x)),
           alignment: .topCenter,
@@ -296,7 +297,7 @@ class _SellFormState extends State<SellForm> {
                       Icon(Icons.calendar_today, color: context.theme.colors.primary),
                       const SizedBox(width: 12),
                       Text(
-                        'Sale Date: ${_saleDate.day}/${_saleDate.month}/${_saleDate.year}',
+                        'Tanggal Penjualan: ${_saleDate.day}/${_saleDate.month}/${_saleDate.year}',
                         style: context.theme.typography.base,
                       ),
                     ],
@@ -310,7 +311,7 @@ class _SellFormState extends State<SellForm> {
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: TextField(
                 decoration: InputDecoration(
-                  hintText: 'Search items...',
+                  hintText: 'Cari item...',
                   prefixIcon: const Icon(Icons.search),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -395,8 +396,8 @@ class _SellFormState extends State<SellForm> {
                           const SizedBox(height: 16),
                           Text(
                             _searchQuery.isEmpty 
-                              ? 'No items available for sale'
-                              : 'No matching items found',
+                              ? 'Tidak ada item yang tersedia untuk dijual'
+                              : 'Tidak ada item yang cocok ditemukan',
                             style: TextStyle(color: Colors.grey[600]),
                           ),
                         ],
@@ -465,7 +466,7 @@ class _SellFormState extends State<SellForm> {
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          'Available: ${item.itemCount}${item.unit != null ? " ${item.unit}" : ""}',
+                                          'Tersedia: ${item.itemCount}${item.unit != null ? " ${item.unit}" : ""}',
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: Colors.grey[600],
@@ -485,7 +486,7 @@ class _SellFormState extends State<SellForm> {
                                         ),
                                       ),
                                       Text(
-                                        'Profit: ${formatRupiah(profit)}',
+                                        'Untung: ${formatRupiah(profit)}',
                                         style: TextStyle(
                                           fontSize: 11,
                                           color: Colors.grey[600],
@@ -504,7 +505,7 @@ class _SellFormState extends State<SellForm> {
                                       focusNode: _focusNodes[item.id],
                                       keyboardType: TextInputType.number,
                                       decoration: InputDecoration(
-                                        labelText: 'Quantity to sell',
+                                        labelText: 'Jumlah untuk dijual',
                                         hintText: '0',
                                         border: const OutlineInputBorder(),
                                         suffixText: item.unit,
@@ -530,7 +531,7 @@ class _SellFormState extends State<SellForm> {
                                             ),
                                           ),
                                           Text(
-                                            'Total Profit',
+                                            'Total Untung',
                                             style: TextStyle(
                                               fontSize: 10,
                                               color: Colors.grey[600],
@@ -566,7 +567,7 @@ class _SellFormState extends State<SellForm> {
                     child: FButton(
                       onPress: () => widget.controller.hide(),
                       variant: .outline,
-                      child: const Text('Cancel'),
+                      child: const Text('Batal'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -583,7 +584,7 @@ class _SellFormState extends State<SellForm> {
                                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
-                          : const Text('Complete Sale'),
+                          : const Text('Selesaikan Penjualan'),
                     ),
                   ),
                 ],

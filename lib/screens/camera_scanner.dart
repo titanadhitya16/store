@@ -126,17 +126,6 @@ class _CameraScannerState extends State<CameraScanner> {
       final InputImageFormat inputImageFormat =
           InputImageFormat.nv21;
 
-      final planeData = cameraImage.planes.map(
-        (Plane plane) {
-          return InputImageMetadata(
-            bytesPerRow: plane.bytesPerRow,
-            size: Size(plane.width?.toDouble() ?? 0, plane.height?.toDouble() ?? 0),
-            rotation: imageRotation,
-            format: inputImageFormat,
-          );
-        },
-      ).toList();
-
       final inputImage = InputImage.fromBytes(
         bytes: bytes,
         metadata: InputImageMetadata(
@@ -220,7 +209,7 @@ class _CameraScannerState extends State<CameraScanner> {
   void _openSellForm(Stocks scannedItem) async {
     debugPrint('Opening sell dialog for: ${scannedItem.itemName}');
     
-    final result = await showQuickSellDialog(
+    await showQuickSellDialog(
       context,
       item: scannedItem,
       onSaleCompleted: (sale) {
@@ -246,7 +235,7 @@ class _CameraScannerState extends State<CameraScanner> {
   void _openNewItemForm(String barcodeValue) async {
     debugPrint('Opening new item dialog with barcode: $barcodeValue');
     
-    final result = await showQuickItemDialog(
+    await showQuickItemDialog(
       context,
       barcode: barcodeValue,
       onItemSaved: (newItem) {

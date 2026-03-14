@@ -5,7 +5,6 @@ import 'firebase_options.dart';
 import 'widgets/navigation.dart';
 import 'services/notification_service.dart';
 import 'services/preferences_service.dart';
-import 'package:firebase_ai/firebase_ai.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

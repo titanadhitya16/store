@@ -8,6 +8,82 @@ import 'package:storehsk/utils/currency_formatter.dart';
 // Create Firebase service instance
 final FirebaseService _firebaseService = FirebaseService();
 
+class _StockFolder {
+  final String key;
+  final String displayName;
+  final List<Stocks> items;
+
+  const _StockFolder({
+    required this.key,
+    required this.displayName,
+    required this.items,
+  });
+}
+
+String _normalizeName(String value) {
+  final cleaned = value
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9\s-]'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  return cleaned;
+}
+
+String _toTitleCase(String value) {
+  if (value.isEmpty) return value;
+  return value
+      .split(' ')
+      .where((part) => part.isNotEmpty)
+      .map((part) => part[0].toUpperCase() + part.substring(1))
+      .join(' ');
+}
+
+bool _isLikelySuffixToken(String token) {
+  if (token.isEmpty) return false;
+  return RegExp(r'(?=.*[a-z])(?=.*\d)[a-z0-9-]+').hasMatch(token) ||
+      RegExp(r'^[a-z]{1,3}\d{1,4}$').hasMatch(token) ||
+      RegExp(r'^\d+[a-z]{1,3}$').hasMatch(token);
+}
+
+String _deriveFolderKey(String itemName) {
+  final normalized = _normalizeName(itemName);
+  if (normalized.isEmpty) return itemName.toLowerCase().trim();
+
+  final tokens = normalized.split(' ');
+  if (tokens.length <= 1) {
+    return normalized;
+  }
+
+  final lastToken = tokens.last;
+  if (_isLikelySuffixToken(lastToken)) {
+    return tokens.sublist(0, tokens.length - 1).join(' ');
+  }
+
+  return normalized;
+}
+
+List<_StockFolder> _groupIntoFolders(List<Stocks> items) {
+  final Map<String, List<Stocks>> grouped = {};
+
+  for (final item in items) {
+    final key = _deriveFolderKey(item.itemName);
+    grouped.putIfAbsent(key, () => []).add(item);
+  }
+
+  final folders = grouped.entries.map((entry) {
+    final sortedItems = [...entry.value]
+      ..sort((a, b) => a.itemName.toLowerCase().compareTo(b.itemName.toLowerCase()));
+    return _StockFolder(
+      key: entry.key,
+      displayName: _toTitleCase(entry.key),
+      items: sortedItems,
+    );
+  }).toList()
+    ..sort((a, b) => a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
+
+  return folders;
+}
+
 // Stock List View Component
 class StockListView extends StatelessWidget {
   final List<Stocks> items;
@@ -103,11 +179,16 @@ class StockListView extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              DateFormat('dd MMM yyyy').format(item.itemDate),
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey[600],
+                            Expanded(
+                              child: Text(
+                                DateFormat('dd MMM yyyy').format(item.itemDate),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey[600],
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.right,
                               ),
                             ),
                           ],
@@ -152,6 +233,69 @@ class StockListView extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class FolderedStockListView extends StatelessWidget {
+  final List<_StockFolder> folders;
+  final Function(Stocks)? onItemTap;
+
+  const FolderedStockListView({
+    super.key,
+    required this.folders,
+    this.onItemTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: folders.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final folder = folders[index];
+        final totalCount = folder.items.fold<int>(0, (sum, item) => sum + item.itemCount);
+
+        return FCard(
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              leading: const Icon(Icons.folder_open_rounded, color: Colors.amber),
+              tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              title: Text(
+                folder.displayName,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${folder.items.length} / $totalCount',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blue,
+                  ),
+                ),
+              ),
+              childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
+              children: [
+                StockListView(
+                  items: folder.items,
+                  onItemTap: onItemTap,
+                ),
+              ],
             ),
           ),
         );
@@ -607,6 +751,7 @@ class _StorageState extends State<Storage> {
 
           final allItems = snapshot.data ?? [];
           final filteredItems = _filterItems(allItems);
+          final groupedFolders = _groupIntoFolders(filteredItems);
 
           if (allItems.isEmpty) {
             return Center(
@@ -822,8 +967,8 @@ class _StorageState extends State<Storage> {
                 else
                   Padding(
                     padding: const EdgeInsets.all(8.0),
-                    child: StockListView(
-                      items: filteredItems,
+                    child: FolderedStockListView(
+                      folders: groupedFolders,
                       onItemTap: _handleItemTap,
                     ),
                   ),

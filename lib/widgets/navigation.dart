@@ -35,6 +35,8 @@ class Navigation extends StatefulWidget {
 class _NavigationState extends State<Navigation> {
   int _index = 0;
 
+  bool get _showFloatingButton => _index == 0 || _index == 1;
+
   void _showAddItemOptions(BuildContext scaffoldContext) {
     // Show bottom sheet for adding items (controller used via builder callback)
     // ignore: unused_result
@@ -59,7 +61,7 @@ class _NavigationState extends State<Navigation> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Add Item',
+                'Tambahkan Item',
                 style: context.theme.typography.xl2.copyWith(
                   fontWeight: FontWeight.w600,
                   color: context.theme.colors.foreground,
@@ -67,7 +69,7 @@ class _NavigationState extends State<Navigation> {
               ),
               const SizedBox(height: 8),
               Text(
-                'How would you like to add an item?',
+                'Pilih cara menambahkan item:',
                 style: context.theme.typography.base.copyWith(
                   color: context.theme.colors.mutedForeground,
                 ),
@@ -85,7 +87,7 @@ class _NavigationState extends State<Navigation> {
                     children: [
                       Icon(FIcons.camera),
                       SizedBox(width: 8),
-                      Text('Scan with Camera'),
+                      Text('Scan dengan Kamera'),
                     ],
                   ),
                 ),
@@ -103,7 +105,7 @@ class _NavigationState extends State<Navigation> {
                     children: [
                       Icon(FIcons.pencil),
                       SizedBox(width: 8),
-                      Text('Manual Entry'),
+                      Text('Entri Manual'),
                     ],
                   ),
                 ),
@@ -121,7 +123,7 @@ class _NavigationState extends State<Navigation> {
                     children: [
                       Icon(FIcons.shoppingCart),
                       SizedBox(width: 8),
-                      Text('Sell Items'),
+                      Text('Jual Item'),
                     ],
                   ),
                 ),
@@ -131,7 +133,7 @@ class _NavigationState extends State<Navigation> {
                 width: double.infinity,
                 child: FButton(
                   onPress: () => controller.hide(),
-                  child: const Text('Cancel'),
+                  child: const Text('Batal'),
                 ),
               ),
             ],
@@ -147,11 +149,12 @@ class _NavigationState extends State<Navigation> {
       MaterialPageRoute(
         builder: (context) => CameraScanner(
           onItemDetected: (newItem) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('${newItem.itemName} added successfully!'),
-                backgroundColor: Colors.green,
-              ),
+            showFToast(
+              context: context,
+              alignment: .topCenter,
+              title: Text('Item Ditambahkan'),
+              description: Text('${newItem.itemName} berhasil ditambahkan!'),
+              style: .context(),
             );
           },
         ),
@@ -163,11 +166,12 @@ class _NavigationState extends State<Navigation> {
     showItemFormSheet(
       context,
       onItemSaved: (newItem) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${newItem.itemName} added successfully!'),
-            backgroundColor: Colors.green,
-          ),
+        showFToast(
+          context: context,
+          alignment: .topCenter,
+          title: Text('Item Ditambahkan'),
+          description: Text('${newItem.itemName} berhasil ditambahkan!'),
+          style: .context(),
         );
       },
     );
@@ -199,16 +203,17 @@ class _NavigationState extends State<Navigation> {
     child: Builder(
       builder: (scaffoldContext) => Stack(children: [
         contents[_index],
-        Positioned(
-          bottom: 20.0, 
-          right: 16.0,
-          child: FloatingActionButton(
-            onPressed: () {
-              _showAddItemOptions(scaffoldContext);
-            },
-            child: const Icon(FIcons.plus),
+        if (_showFloatingButton)
+          Positioned(
+            bottom: 20.0,
+            right: 16.0,
+            child: FloatingActionButton(
+              onPressed: () {
+                _showAddItemOptions(scaffoldContext);
+              },
+              child: const Icon(FIcons.plus),
+            ),
           ),
-        ),
       ]),
     ),
   );
