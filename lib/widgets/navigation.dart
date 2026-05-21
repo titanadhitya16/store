@@ -1,16 +1,12 @@
 import 'package:forui/forui.dart';
 import 'package:flutter/material.dart';
-import 'package:storehsk/screens/storage.dart';
 import 'package:storehsk/screens/home.dart';
-import 'package:storehsk/screens/camera_scanner.dart';
 import 'package:storehsk/screens/settings.dart';
 import 'package:storehsk/screens/AI_chatbot.dart';
 import 'package:storehsk/widgets/item_form.dart';
-import 'package:storehsk/widgets/sell_form.dart';
   
 final headers = [
   const FHeader(),
-  const FHeader(title: Text('Storage')),
   const FHeader(title: Text('AI Assistant')),
   FHeader(
     title: const Text('Settings'),
@@ -20,7 +16,6 @@ final headers = [
 
 final contents = [
   const Home(),
-  const Storage(),
   const AIChatbot(),
   const Settings(),
 ];
@@ -35,7 +30,7 @@ class Navigation extends StatefulWidget {
 class _NavigationState extends State<Navigation> {
   int _index = 0;
 
-  bool get _showFloatingButton => _index == 0 || _index == 1;
+  bool get _showFloatingButton => _index == 0;
 
   void _showAddItemOptions(BuildContext scaffoldContext) {
     // Show bottom sheet for adding items (controller used via builder callback)
@@ -61,38 +56,13 @@ class _NavigationState extends State<Navigation> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Tambahkan Item',
+                'Tambahkan Laporan Keuangan',
                 style: context.theme.typography.xl2.copyWith(
                   fontWeight: FontWeight.w600,
                   color: context.theme.colors.foreground,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Pilih cara menambahkan item:',
-                style: context.theme.typography.base.copyWith(
-                  color: context.theme.colors.mutedForeground,
-                ),
-              ),
               const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: FButton(
-                  onPress: () {
-                    controller.hide();
-                    _openCameraScanner(scaffoldContext);
-                  },
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(FIcons.camera),
-                      SizedBox(width: 8),
-                      Text('Scan dengan Kamera'),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: FButton(
@@ -114,24 +84,6 @@ class _NavigationState extends State<Navigation> {
               SizedBox(
                 width: double.infinity,
                 child: FButton(
-                  onPress: () {
-                    controller.hide();
-                    _openSellForm(scaffoldContext);
-                  },
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(FIcons.shoppingCart),
-                      SizedBox(width: 8),
-                      Text('Jual Item'),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: FButton(
                   onPress: () => controller.hide(),
                   child: const Text('Batal'),
                 ),
@@ -143,48 +95,22 @@ class _NavigationState extends State<Navigation> {
     );
   }
 
-  void _openCameraScanner(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CameraScanner(
-          onItemDetected: (newItem) {
-            showFToast(
-              context: context,
-              alignment: .topCenter,
-              title: Text('Item Ditambahkan'),
-              description: Text('${newItem.itemName} berhasil ditambahkan!'),
-              style: .context(),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
   void _openManualForm(BuildContext context) {
     showItemFormSheet(
       context,
-      onItemSaved: (newItem) {
+      onItemSaved: (newEntry) {
         showFToast(
           context: context,
           alignment: .topCenter,
-          title: Text('Item Ditambahkan'),
-          description: Text('${newItem.itemName} berhasil ditambahkan!'),
+          title: const Text('Laporan Disimpan'),
+          description: Text('Laporan keuangan untuk tanggal ${newEntry.date.day}/${newEntry.date.month} berhasil disimpan!'),
           style: .context(),
         );
       },
     );
   }
 
-  void _openSellForm(BuildContext context) {
-    showSellFormSheet(
-      context,
-      onSaleCompleted: (sales) {
-        // Sales completion is handled by the sell form toast
-      },
-    );
-  }
+
 
   @override
   Widget build(BuildContext context) => FScaffold(
@@ -195,7 +121,6 @@ class _NavigationState extends State<Navigation> {
       onChange: (index) => setState(() => _index = index),
       children: const [
         FBottomNavigationBarItem(icon: Icon(FIcons.house), label: Text('Home')),
-        FBottomNavigationBarItem(icon: Icon(FIcons.warehouse), label: Text('Storage')),
         FBottomNavigationBarItem(icon: Icon(FIcons.sparkles), label: Text('AI')),
         FBottomNavigationBarItem(icon: Icon(FIcons.settings), label: Text('Settings')),
       ],

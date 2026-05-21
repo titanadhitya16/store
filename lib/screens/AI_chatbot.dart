@@ -74,7 +74,7 @@ class _AIChatbotState extends State<AIChatbot> {
     // Add welcome message
     _messages.add(
       ChatMessage(
-        text: "Halo! Saya asisten inventaris StoreHSK Anda. Ada yang bisa saya bantu hari ini?\n\nAnda bisa bertanya tentang:\n• Status inventaris\n• Item dengan stok menipis\n• Laporan stok\n• Detail item\n• Dan lainnya!",
+        text: "Saya adalah Asisten Keuangan Anda.\n\nFokus utama saya adalah membantu Anda mencatat, memantau, dan menganalisis kesehatan finansial toko Anda dengan cepat dan akurat.\n\nBerikut adalah hal-hal yang bisa saya lakukan untuk Anda:\n • Pencatatan Transaksi: Mencatat pemasukan (penjualan) dan pengeluaran (operasional, restok) secara real-time.\n • Laporan Laba Rugi: Menghitung selisih antara pendapatan dan biaya untuk melihat keuntungan bersih.\n • Arus Kas (Cash Flow): Memantau uang masuk dan keluar agar operasional tetap lancar.\n • Analisis Margin: Memberikan insight mengenai produk mana yang memberikan keuntungan tertinggi.\n • Pengingat Hutang/Piutang: Mencatat tagihan yang harus dibayar atau ditagih kepada supplier/pelanggan.",
         isUser: false,
         timestamp: DateTime.now(),
       ),

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:forui/forui.dart';
-import 'package:storehsk/models/stocks.dart';
-import 'package:storehsk/services/firebase_service.dart';
+import 'package:storehsk/models/finance_entry.dart';
+import 'package:storehsk/services/finance_service.dart';
 import 'package:intl/intl.dart';
 
-final FirebaseService _firebaseService = FirebaseService();
+final FinanceService _financeService = FinanceService();
 
 class ThousandsSeparatorInputFormatter extends TextInputFormatter {
   final NumberFormat _formatter = NumberFormat('#,##0', 'id_ID');
@@ -46,18 +46,14 @@ class ThousandsSeparatorInputFormatter extends TextInputFormatter {
 }
 
 class ItemFormContent extends StatefulWidget {
-  final Stocks? item;
-  final String? initialItemName;
-  final String? initialBarcode;
-  final Function(Stocks)? onItemSaved;
+  final FinanceEntry? entry;
+  final Function(FinanceEntry)? onItemSaved;
   final VoidCallback? onItemDeleted;
   final FPersistentSheetController controller;
 
   const ItemFormContent({
     super.key,
-    this.item,
-    this.initialItemName,
-    this.initialBarcode,
+    this.entry,
     this.onItemSaved,
     this.onItemDeleted,
     required this.controller,
@@ -69,81 +65,23 @@ class ItemFormContent extends StatefulWidget {
 
 class _ItemFormContentState extends State<ItemFormContent> with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _itemNameController = TextEditingController();
-  final _quantityController = TextEditingController();
-  final _stockPriceController = TextEditingController();
-  final _sellPriceController = TextEditingController();
-  final _lowStockThresholdController = TextEditingController();
-  final _barcodeController = TextEditingController();
-  
-  late FSelectController<String> _unitController;
+  final _uangAwalController = TextEditingController();
+  final _penghasilanController = TextEditingController();
+  final _pengeluaranController = TextEditingController();
   
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
-  
-  final List<String> _units = [
-    'pcs',
-    'kg',
-    'liters',
-    'meters',
-    'boxes',
-    'sets',
-  ];
 
   @override
   void initState() {
     super.initState();
-    _unitController = FSelectController<String>();
-    
-    if (widget.item != null) {
-      _populateForm(widget.item!);
-    } else {
-      if (widget.initialItemName != null) {
-        _itemNameController.text = widget.initialItemName!;
-      }
-      if (widget.initialBarcode != null) {
-        _barcodeController.text = widget.initialBarcode!;
-      }
-    }
-  }
-
-  void _populateForm(Stocks item) {
-    _itemNameController.text = item.itemName;
-    _quantityController.text = item.itemCount.toString();
-    _selectedDate = item.itemDate;
-    
-    // Format prices with thousand separators
-    if (item.stockPrice != null) {
-      final formatted = NumberFormat('#,##0', 'id_ID').format(item.stockPrice!.toInt());
-      _stockPriceController.text = formatted.replaceAll(',', '.');
-    }
-    if (item.sellPrice != null) {
-      final formatted = NumberFormat('#,##0', 'id_ID').format(item.sellPrice!.toInt());
-      _sellPriceController.text = formatted.replaceAll(',', '.');
-    }
-    
-    if (item.lowStockThreshold != null) {
-      _lowStockThresholdController.text = item.lowStockThreshold.toString();
-    }
-    
-    if (item.unit != null) {
-      _unitController.value = item.unit;
-    }
-    
-    if (item.barcode != null) {
-      _barcodeController.text = item.barcode!;
-    }
   }
 
   @override
   void dispose() {
-    _itemNameController.dispose();
-    _quantityController.dispose();
-    _stockPriceController.dispose();
-    _sellPriceController.dispose();
-    _lowStockThresholdController.dispose();
-    _barcodeController.dispose();
-    _unitController.dispose();
+    _uangAwalController.dispose();
+    _penghasilanController.dispose();
+    _pengeluaranController.dispose();
     super.dispose();
   }
 
@@ -156,156 +94,52 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
 
   Future<void> _saveItem() async {
     if (!_formKey.currentState!.validate()) return;
-    
-    if (_itemNameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Masukkan nama item terlebih dahulu'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
 
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final itemName = _itemNameController.text.trim();
-      final newQuantity = int.parse(_quantityController.text.trim());
-      
-      // If editing an existing item, just update it normally
-      if (widget.item != null) {
-        final lowStockValue = _lowStockThresholdController.text.trim().isEmpty ? null : int.tryParse(_lowStockThresholdController.text.trim());
-        final updatedItem = Stocks(
-          id: widget.item!.id,
-          itemName: itemName,
-          itemCount: newQuantity,
-          itemDate: _selectedDate,
-          description: widget.item!.description,
-          stockPrice: _parsePrice(_stockPriceController.text),
-          sellPrice: _parsePrice(_sellPriceController.text),
-          unit: _unitController.value,
-          barcode: _barcodeController.text.trim().isEmpty ? null : _barcodeController.text.trim(),
-          lowStockThreshold: lowStockValue,
-          createdAt: widget.item!.createdAt,
+      final uangAwal = _parsePrice(_uangAwalController.text) ?? 0;
+      final penghasilan = _parsePrice(_penghasilanController.text) ?? 0;
+      final pengeluaran = _parsePrice(_pengeluaranController.text) ?? 0;
+
+      final labaBersihHarian = uangAwal + penghasilan - pengeluaran;
+      final modalAwal = labaBersihHarian * (100 / 542);
+      final bagiHasil = labaBersihHarian * (350 / 542);
+      final pram = labaBersihHarian * (50 / 542);
+      final tabRollo = labaBersihHarian * (70 / 542);
+
+      final newEntry = FinanceEntry(
+        date: _selectedDate,
+        uangAwal: uangAwal,
+        penghasilan: penghasilan,
+        pengeluaran: pengeluaran,
+        labaBersihHarian: labaBersihHarian,
+        modalAwal: modalAwal,
+        bagiHasil: bagiHasil,
+        pram: pram,
+        tabRollo: tabRollo,
+        createdAt: DateTime.now(),
+      );
+
+      await _financeService.addFinanceEntry(newEntry);
+
+      if (mounted) {
+        widget.controller.hide();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Laporan keuangan berhasil disimpan!'),
+            backgroundColor: Colors.green,
+          ),
         );
-        
-        
-        await _firebaseService.updateStock(widget.item!.id!, updatedItem);
-        widget.onItemSaved?.call(updatedItem);
-        
-        if (mounted) {
-          widget.controller.hide();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Item berhasil diperbarui!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-        return;
-      }
-      
-      // For new items, check if an item with the same name already exists
-      final existingItem = await _firebaseService.findStockByExactName(itemName);
-      
-      if (existingItem != null) {
-        // Item exists, merge quantities
-        final mergedQuantity = existingItem.itemCount + newQuantity;
-        
-        if (mergedQuantity < 0) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Tidak dapat mengurangi item melebihi jumlah yang ada'),
-                backgroundColor: Colors.orange,
-              ),
-            );
-          }
-          return;
-        }
-        
-        final lowStockValue = _lowStockThresholdController.text.trim().isEmpty 
-            ? existingItem.lowStockThreshold 
-            : int.tryParse(_lowStockThresholdController.text.trim());
-        
-        final updatedItem = Stocks(
-          id: existingItem.id,
-          itemName: existingItem.itemName,
-          itemCount: mergedQuantity,
-          itemDate: _selectedDate,
-          description: existingItem.description,
-          stockPrice: _parsePrice(_stockPriceController.text) ?? existingItem.stockPrice,
-          sellPrice: _parsePrice(_sellPriceController.text) ?? existingItem.sellPrice,
-          unit: _unitController.value ?? existingItem.unit,
-          barcode: _barcodeController.text.trim().isEmpty ? existingItem.barcode : _barcodeController.text.trim(),
-          lowStockThreshold: lowStockValue,
-          createdAt: existingItem.createdAt,
-        );
-        
-        await _firebaseService.updateStock(existingItem.id!, updatedItem);
-        widget.onItemSaved?.call(updatedItem);
-        
-        if (mounted) {
-          widget.controller.hide();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Kuantitas diperbarui: ${existingItem.itemCount} → $mergedQuantity'),
-              backgroundColor: Colors.blue,
-            ),
-          );
-        }
-      } else {
-        // Item doesn't exist, add as new
-        if (newQuantity < 0) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Tidak dapat menambahkan item dengan kuantitas negatif'),
-                backgroundColor: Colors.orange,
-              ),
-            );
-          }
-          return;
-        }
-        
-        final lowStockValue = _lowStockThresholdController.text.trim().isEmpty ? null : int.tryParse(_lowStockThresholdController.text.trim());
-        
-        final newItem = Stocks(
-          id: null,
-          itemName: itemName,
-          itemCount: newQuantity,
-          itemDate: _selectedDate,
-          description: null,
-          stockPrice: _parsePrice(_stockPriceController.text),
-          sellPrice: _parsePrice(_sellPriceController.text),
-          unit: _unitController.value,
-          barcode: _barcodeController.text.trim().isEmpty ? null : _barcodeController.text.trim(),
-          lowStockThreshold: lowStockValue,
-          createdAt: DateTime.now(),
-        );
-        
-        await _firebaseService.addStock(newItem);
-        widget.onItemSaved?.call(newItem);
-        
-        if (mounted) {
-          widget.controller.hide();
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Item berhasil ditambahkan!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
+        widget.onItemSaved?.call(newEntry);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error menyimpan item: $e'),
+            content: Text('Error menyimpan laporan: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -356,123 +190,40 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Item Name
-                    _buildTextField(
-                      label: 'Nama Item *',
-                      controller: _itemNameController,
-                      hint: 'Masukkan nama item',
-                      validator: (value) {
-                        if (value?.isEmpty == true) return 'Nama item diperlukan';
-                        return null;
-                      },
-                      prefixIcon: Icons.inventory,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Barcode
-                    _buildTextField(
-                      label: 'Barcode',
-                      controller: _barcodeController,
-                      hint: 'Masukkan atau pindai barcode',
-                      prefixIcon: Icons.qr_code,
-                    ),
-                    const SizedBox(height: 16),
-
                     // Item Date (Required)
                     _buildDateField(),
                     const SizedBox(height: 16),
 
-                    // Quantity and Unit
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: _buildTextField(
-                            label: 'Jumlah *',
-                            controller: _quantityController,
-                            hint: '0',
-                            keyboardType: const TextInputType.numberWithOptions(signed: true),
-                            validator: (value) {
-                              if (value?.isEmpty == true) return 'Jumlah diperlukan';
-                              if (int.tryParse(value!) == null) return 'Masukkan angka yang valid';
-                              return null;
-                            },
-                            prefixIcon: Icons.numbers,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildSelect(
-                            label: 'Unit',
-                            controller: _unitController,
-                            items: _units,
-                            hint: 'Pilih unit',
-                            prefixIcon: Icons.straighten,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Stock Price and Sell Price
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildTextField(
-                            label: 'Harga Stok (Biaya)',
-                            controller: _stockPriceController,
-                            hint: '0',
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [ThousandsSeparatorInputFormatter()],
-                            validator: (value) {
-                              if (value?.isNotEmpty == true) {
-                                final price = _parsePrice(value!);
-                                if (price == null) return 'Masukkan harga yang valid';
-                                if (price < 0) return 'Harga tidak boleh negatif';
-                              }
-                              return null;
-                            },
-                            prefixIcon: Icons.shopping_cart,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildTextField(
-                            label: 'Harga Jual',
-                            controller: _sellPriceController,
-                            hint: '0',
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [ThousandsSeparatorInputFormatter()],
-                            validator: (value) {
-                              if (value?.isNotEmpty == true) {
-                                final price = _parsePrice(value!);
-                                if (price == null) return 'Masukkan harga yang valid';
-                                if (price < 0) return 'Harga tidak boleh negatif';
-                              }
-                              return null;
-                            },
-                            prefixIcon: Icons.attach_money,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Low Stock Threshold
+                    // Uang Awal
                     _buildTextField(
-                      label: 'Batas Stok Rendah',
-                      controller: _lowStockThresholdController,
-                      hint: 'Masukkan jumlah threshold untuk peringatan stok rendah',
+                      label: 'Uang Awal',
+                      controller: _uangAwalController,
+                      hint: '0',
                       keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (value?.isNotEmpty == true) {
-                          final threshold = int.tryParse(value!);
-                          if (threshold == null) return 'Masukkan angka yang valid';
-                          if (threshold < 0) return 'Threshold tidak boleh negatif';
-                        }
-                        return null;
-                      },
-                      prefixIcon: Icons.warning_amber,
+                      inputFormatters: [ThousandsSeparatorInputFormatter()],
+                      prefixIcon: Icons.account_balance_wallet,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Penghasilan
+                    _buildTextField(
+                      label: 'Penghasilan',
+                      controller: _penghasilanController,
+                      hint: '0',
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [ThousandsSeparatorInputFormatter()],
+                      prefixIcon: Icons.arrow_upward,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Pengeluaran
+                    _buildTextField(
+                      label: 'Pengeluaran',
+                      controller: _pengeluaranController,
+                      hint: '0',
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [ThousandsSeparatorInputFormatter()],
+                      prefixIcon: Icons.arrow_downward,
                     ),
                     const SizedBox(height: 24),
 
@@ -495,7 +246,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Item Date *',
+          'Tanggal Laporan *',
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 8),
@@ -536,7 +287,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
                     width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(widget.item == null ? 'Add Item' : 'Update Item'),
+                : Text(widget.entry == null ? 'Add Entry' : 'Update Entry'),
           ),
         ),
         const SizedBox(height: 12),
@@ -588,58 +339,14 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
     );
   }
 
-  Widget _buildSelect({
-    required String label,
-    required FSelectController<String> controller,
-    required List<String> items,
-    required String hint,
-    IconData? prefixIcon,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-        ),
-        const SizedBox(height: 8),
-        FSelect<String>.rich(
-          control: .managed(
-            controller: controller,
-            onChange: (value) {
-              controller.value = value;
-            },
-          ),
-          hint: hint,
-          format: (value) => value,
-          children: [
-            for (final item in items)
-              FSelectItem(
-                title: Row(
-                  children: [
-                    if (prefixIcon != null) ...[
-                      Icon(prefixIcon, size: 20),
-                      const SizedBox(width: 8),
-                    ],
-                    Text(item),
-                  ],
-                ),
-                value: item,
-              ),
-          ],
-        ),
-      ],
-    );
-  }
+
 }
 
 // Helper function to show the item form sheet
 FPersistentSheetController showItemFormSheet(
   BuildContext context, {
-  Stocks? item,
-  String? itemName,
-  String? barcode,
-  Function(Stocks)? onItemSaved,
+  FinanceEntry? entry,
+  Function(FinanceEntry)? onItemSaved,
   VoidCallback? onItemDeleted,
 }) {
   return showFPersistentSheet(
@@ -649,9 +356,7 @@ FPersistentSheetController showItemFormSheet(
     mainAxisMaxRatio: 0.9,
     resizeToAvoidBottomInset: true,
     builder: (context, controller) => ItemFormContent(
-      item: item,
-      initialItemName: itemName,
-      initialBarcode: barcode,
+      entry: entry,
       onItemSaved: onItemSaved,
       onItemDeleted: onItemDeleted,
       controller: controller,

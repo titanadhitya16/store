@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:forui/forui.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -10,6 +11,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   try {
+    await dotenv.load(fileName: '.env');
+
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
@@ -20,7 +23,7 @@ Future<void> main() async {
     // Initialize preferences service
     await PreferencesService().initialize();
   } catch (e) {
-    print('Firebase initialization error: $e');
+    debugPrint('Firebase initialization error: $e');
   }
   
   runApp(const Application());
