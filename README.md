@@ -1,4 +1,4 @@
-# storehsk
+# store
 
 A new Flutter project.
 
