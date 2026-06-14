@@ -36,12 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_dotenv: ^5.1.0
   forui: ^0.18.1
-  fl_chart: ^1.1.1
   gap: ^3.0.1
-  camera: ^0.11.3+1
-  image_picker: ^1.0.7
-  google_mlkit_barcode_scanning: ^0.13.0
-  path_provider: ^2.1.1
   firebase_core: ^4.4.0
   cloud_firestore: ^6.1.2
   firebase_messaging: ^16.1.1
@@ -107,5 +102,3 @@ flutter:
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
 
-dependency_overrides:
-  camera_android: ^0.10.8+16  # Use Camera2 instead of CameraX for SDK 31 compatibility

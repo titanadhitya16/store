@@ -650,7 +650,7 @@ Apa yang ingin Anda data hari ini?
       'itemName': itemName,
       'recommendedQuantity': quantity ?? 10,
       'recommendedUnit': unit ?? 'pcs',
-      'note': 'Anda dapat menambahkan item ini menggunakan opsi "Input Manual" atau "Pindai dengan Kamera" dari tombol Tambah.',
+      'note': 'Anda dapat menambahkan item ini dari tab Inventaris → tombol + → Tambah Item.',
     };
   }
 

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:forui/forui.dart';
 import 'package:intl/intl.dart';
-import 'package:rollogames/models/stocks.dart';
-import 'package:rollogames/services/firebase_service.dart';
-import 'package:rollogames/utils/input_formatters.dart';
+import 'package:storehsk/models/stocks.dart';
+import 'package:storehsk/services/firebase_service.dart';
+import 'package:storehsk/utils/input_formatters.dart';
 
 final FirebaseService _firebaseService = FirebaseService();
 

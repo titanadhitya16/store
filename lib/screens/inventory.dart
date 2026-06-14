@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:gap/gap.dart';
-import 'package:rollogames/models/stocks.dart';
-import 'package:rollogames/services/firebase_service.dart';
-import 'package:rollogames/utils/currency_formatter.dart';
-import 'package:rollogames/widgets/quick_sell_dialog.dart';
-import 'package:rollogames/widgets/stock_form.dart';
+import 'package:storehsk/models/stocks.dart';
+import 'package:storehsk/services/firebase_service.dart';
+import 'package:storehsk/utils/currency_formatter.dart';
+import 'package:storehsk/widgets/quick_sell_dialog.dart';
+import 'package:storehsk/widgets/stock_form.dart';
 
 final FirebaseService _firebaseService = FirebaseService();
 
@@ -79,12 +79,10 @@ class _InventoryState extends State<Inventory> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.expand(
-      child: Material(
-        type: MaterialType.transparency,
-        child: StreamBuilder<List<Stocks>>(
-          stream: _stocksStream,
-          builder: (context, snapshot) {
+    return FScaffold(
+      child: StreamBuilder<List<Stocks>>(
+        stream: _stocksStream,
+        builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Center(
               child: Padding(
@@ -97,14 +95,15 @@ class _InventoryState extends State<Inventory> {
             );
           }
 
-          if (snapshot.connectionState == ConnectionState.waiting &&
-              !snapshot.hasData) {
+          if (!snapshot.hasData &&
+              snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
           final allItems = snapshot.data ?? [];
           final filtered = _applyFilters(allItems);
-          final totalQty = allItems.fold<int>(0, (sum, s) => sum + s.itemCount);
+          final totalQty =
+              allItems.fold<int>(0, (sum, s) => sum + s.itemCount);
           final lowCount = allItems.where((s) => s.isLowStock).length;
           final outCount = allItems.where((s) => s.isOutOfStock).length;
           final totalValue = allItems.fold<double>(0, (sum, s) {
@@ -114,63 +113,81 @@ class _InventoryState extends State<Inventory> {
             return sum;
           });
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Text(
-                  '$totalQty unit • ${allItems.length} item',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                  ),
-                ),
-              ),
-              const Gap(12),
-              _buildSummaryRow(allItems.length, lowCount, outCount, totalValue),
-              const Gap(12),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Cari nama atau kategori...',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() => _searchQuery = '');
-                            },
-                          )
-                        : null,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Text(
+                    '$totalQty unit • ${allItems.length} item',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.6),
                     ),
-                    isDense: true,
                   ),
-                  onChanged: (v) => setState(() => _searchQuery = v.trim()),
                 ),
               ),
-              const Gap(12),
-              _buildFilterChips(),
-              const Gap(8),
-              Expanded(
-                child: filtered.isEmpty
-                    ? _buildEmptyState(allItems.isEmpty)
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                        itemCount: filtered.length,
-                        itemBuilder: (context, index) =>
-                            _buildStockCard(filtered[index]),
-                      ),
+              const SliverToBoxAdapter(child: Gap(12)),
+              SliverToBoxAdapter(
+                child: _buildSummaryRow(
+                  allItems.length,
+                  lowCount,
+                  outCount,
+                  totalValue,
+                ),
               ),
+              const SliverToBoxAdapter(child: Gap(12)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Cari nama atau kategori...',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            )
+                          : null,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      isDense: true,
+                    ),
+                    onChanged: (v) => setState(() => _searchQuery = v.trim()),
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: Gap(12)),
+              SliverToBoxAdapter(child: _buildFilterChips()),
+              const SliverToBoxAdapter(child: Gap(8)),
+              if (filtered.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _buildEmptyState(allItems.isEmpty),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) =>
+                          _buildStockCard(filtered[index]),
+                      childCount: filtered.length,
+                    ),
+                  ),
+                ),
             ],
           );
         },
-      ),
       ),
     );
   }
@@ -183,11 +200,26 @@ class _InventoryState extends State<Inventory> {
         children: [
           _summaryChip('Total Item', '$total', FIcons.package, Colors.blue),
           const Gap(8),
-          _summaryChip('Stok Rendah', '$low', FIcons.triangleAlert, Colors.orange),
+          _summaryChip(
+            'Stok Rendah',
+            '$low',
+            FIcons.triangleAlert,
+            Colors.orange,
+          ),
           const Gap(8),
-          _summaryChip('Habis', '$out', Icons.remove_circle_outline, Colors.red),
+          _summaryChip(
+            'Habis',
+            '$out',
+            Icons.remove_circle_outline,
+            Colors.red,
+          ),
           const Gap(8),
-          _summaryChip('Nilai Stok', formatRupiah(value), FIcons.wallet, Colors.green),
+          _summaryChip(
+            'Nilai Stok',
+            formatRupiah(value),
+            FIcons.wallet,
+            Colors.green,
+          ),
         ],
       ),
     );
@@ -242,10 +274,33 @@ class _InventoryState extends State<Inventory> {
   }
 
   Widget _filterChip(String label, _StockFilter filter) {
-    return FilterChip(
-      label: Text(label),
-      selected: _filter == filter,
-      onSelected: (_) => setState(() => _filter = filter),
+    final selected = _filter == filter;
+    return GestureDetector(
+      onTap: () => setState(() => _filter = filter),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? Theme.of(context).colorScheme.primary.withOpacity(0.12)
+              : Colors.grey.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected
+                ? Theme.of(context).colorScheme.primary
+                : Colors.grey.withOpacity(0.3),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+            color: selected
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+      ),
     );
   }
 
@@ -286,104 +341,145 @@ class _InventoryState extends State<Inventory> {
             ? 'Stok Rendah'
             : 'Tersedia';
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () => _openEditForm(stock),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          stock.itemName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        if (stock.category != null) ...[
-                          const Gap(2),
-                          Text(
-                            stock.category!,
-                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    statusLabel,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: statusColor,
-                    ),
-                  ),
-                ),
-                PopupMenuButton<String>(
-                  onSelected: (action) {
-                    switch (action) {
-                      case 'edit':
-                        _openEditForm(stock);
-                      case 'sell':
-                        if (stock.itemCount > 0 &&
-                            stock.sellPrice != null &&
-                            stock.stockPrice != null) {
-                          showQuickSellDialog(context, item: stock);
-                        } else {
-                          _showToast('Harga belum lengkap atau stok habis');
-                        }
-                      case 'delete':
-                        _confirmDelete(stock);
-                    }
-                  },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(value: 'edit', child: Text('Edit')),
-                    PopupMenuItem(value: 'sell', child: Text('Jual')),
-                    PopupMenuItem(value: 'delete', child: Text('Hapus')),
-                  ],
-                ),
-              ],
-            ),
-            const Gap(10),
-            InkWell(
-              onTap: () => _openEditForm(stock),
-              borderRadius: BorderRadius.circular(8),
-              child: Row(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: FCard(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _infoChip(
-                    Icons.inventory,
-                    '${stock.itemCount}${stock.unit != null ? " ${stock.unit}" : ""}',
-                  ),
-                  if (stock.sellPrice != null) ...[
-                    const Gap(12),
-                    _infoChip(Icons.sell, formatRupiah(stock.sellPrice!)),
-                  ],
-                  if (stock.profitPerUnit != null) ...[
-                    const Gap(12),
-                    _infoChip(
-                      Icons.trending_up,
-                      '+${formatRupiah(stock.profitPerUnit!)}',
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _openEditForm(stock),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            stock.itemName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          if (stock.category != null) ...[
+                            const Gap(2),
+                            Text(
+                              stock.category!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                  ],
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      statusLabel,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: statusColor,
+                      ),
+                    ),
+                  ),
+                  FButton(
+                    variant: .ghost,
+                    onPress: () => _showItemActions(stock),
+                    child: const Icon(FIcons.ellipsis, size: 18),
+                  ),
                 ],
               ),
+              const Gap(10),
+              GestureDetector(
+                onTap: () => _openEditForm(stock),
+                child: Row(
+                  children: [
+                    _infoChip(
+                      Icons.inventory,
+                      '${stock.itemCount}${stock.unit != null ? " ${stock.unit}" : ""}',
+                    ),
+                    if (stock.sellPrice != null) ...[
+                      const Gap(12),
+                      _infoChip(Icons.sell, formatRupiah(stock.sellPrice!)),
+                    ],
+                    if (stock.profitPerUnit != null) ...[
+                      const Gap(12),
+                      _infoChip(
+                        Icons.trending_up,
+                        '+${formatRupiah(stock.profitPerUnit!)}',
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showItemActions(Stocks stock) {
+    showFPersistentSheet(
+      context: context,
+      side: FLayout.btt,
+      useSafeArea: true,
+      mainAxisMaxRatio: 0.35,
+      builder: (context, controller) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              stock.itemName,
+              style: context.theme.typography.lg.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Gap(16),
+            FButton(
+              onPress: () {
+                controller.hide();
+                _openEditForm(stock);
+              },
+              child: const Text('Edit'),
+            ),
+            const Gap(8),
+            FButton(
+              onPress: () {
+                controller.hide();
+                if (stock.itemCount > 0 &&
+                    stock.sellPrice != null &&
+                    stock.stockPrice != null) {
+                  showQuickSellDialog(context, item: stock);
+                } else {
+                  _showToast('Harga belum lengkap atau stok habis');
+                }
+              },
+              child: const Text('Jual'),
+            ),
+            const Gap(8),
+            FButton(
+              onPress: () {
+                controller.hide();
+                _confirmDelete(stock);
+              },
+              variant: .destructive,
+              child: const Text('Hapus'),
             ),
           ],
         ),
