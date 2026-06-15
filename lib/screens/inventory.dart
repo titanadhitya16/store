@@ -143,26 +143,12 @@ class _InventoryState extends State<Inventory> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Cari nama atau kategori...',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => _searchQuery = '');
-                              },
-                            )
-                          : null,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      isDense: true,
+                  child: FTextField(
+                    control: .managed(
+                      controller: _searchController,
+                      onChange: (v) => setState(() => _searchQuery = v.text.trim()),
                     ),
-                    onChanged: (v) => setState(() => _searchQuery = v.trim()),
+                    hint: 'Cari nama atau kategori...'
                   ),
                 ),
               ),
