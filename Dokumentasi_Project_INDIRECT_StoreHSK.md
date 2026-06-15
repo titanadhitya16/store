@@ -123,7 +123,7 @@ Aplikasi dirancang untuk mengatasi pencatatan stok dan keuangan yang masih manua
 - Menambahkan laporan keuangan melalui form manual.
 - Menyimpan data laporan keuangan ke Firestore.
 - Menghitung laba bersih harian dari uang awal, penghasilan, dan pengeluaran.
-- Membagi laba ke empat pos: modal awal, bagi hasil, pram, dan tab rollo.
+- Membagi laba ke empat pos: modal awal, bagi hasil, biaya perawatan, dan tab rollo.
 - Menambahkan stok barang baru melalui dialog cepat.
 - Mengubah stok ketika terjadi penjualan.
 - Memindai barcode untuk menemukan barang.
@@ -211,7 +211,7 @@ Field utama pada model `FinanceEntry`:
 - `labaBersihHarian`
 - `modalAwal`
 - `bagiHasil`
-- `pram`
+- `biayaPerawatan`
 - `tabRollo`
 - `createdAt`
 

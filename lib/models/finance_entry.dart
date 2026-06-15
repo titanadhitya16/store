@@ -9,7 +9,7 @@ class FinanceEntry {
   final double labaBersihHarian;
   final double modalAwal;
   final double bagiHasil;
-  final double pram;
+  final double biayaPerawatan;
   final double tabRollo;
   final DateTime createdAt;
 
@@ -22,7 +22,7 @@ class FinanceEntry {
     required this.labaBersihHarian,
     required this.modalAwal,
     required this.bagiHasil,
-    required this.pram,
+    required this.biayaPerawatan,
     required this.tabRollo,
     required this.createdAt,
   });
@@ -38,7 +38,7 @@ class FinanceEntry {
       labaBersihHarian: (data['labaBersihHarian'] as num).toDouble(),
       modalAwal: (data['modalAwal'] as num).toDouble(),
       bagiHasil: (data['bagiHasil'] as num).toDouble(),
-      pram: (data['pram'] as num).toDouble(),
+      biayaPerawatan: ((data['biayaPerawatan'] ?? data['pram']) as num).toDouble(),
       tabRollo: (data['tabRollo'] as num).toDouble(),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
     );
@@ -53,7 +53,7 @@ class FinanceEntry {
       'labaBersihHarian': labaBersihHarian,
       'modalAwal': modalAwal,
       'bagiHasil': bagiHasil,
-      'pram': pram,
+      'biayaPerawatan': biayaPerawatan,
       'tabRollo': tabRollo,
       'createdAt': createdAt,
     };

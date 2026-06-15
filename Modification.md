@@ -10,9 +10,9 @@ Logika Kalkulasi Data:
 2.	Laba bersih harian dibagi 4:
 a.	Modal awal (100)
 b.	Bagi hasil (350)
-c.	Pram (50)
+c.	Biaya Perawatan (50)
 d.	Tab. Rollo (70)
 3.	Uang Akhir: 
 a.	Saldo bagi hasil: saldo lampau + saldo sekarang (b)
-b.	Saldo pram: saldo lampau + saldo sekarang (c)
+b.	Saldo biaya perawatan: saldo lampau + saldo sekarang (c)
 c.	Saldo tab.Rollo: saldo lampau + saldo sekarang (d)

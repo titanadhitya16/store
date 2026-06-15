@@ -190,7 +190,7 @@ class _HomeState extends State<Home> {
             const Gap(12),
             _buildDistributionRow('Bagi Hasil', entry.bagiHasil),
             const Gap(12),
-            _buildDistributionRow('Pram', entry.pram),
+            _buildDistributionRow('Biaya Perawatan', entry.biayaPerawatan),
             const Gap(12),
             _buildDistributionRow('Tab. Rollo', entry.tabRollo),
           ],

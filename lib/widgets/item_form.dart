@@ -107,7 +107,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
       final labaBersihHarian = uangAwal + penghasilan - pengeluaran;
       final modalAwal = labaBersihHarian * (100 / 542);
       final bagiHasil = labaBersihHarian * (350 / 542);
-      final pram = labaBersihHarian * (50 / 542);
+      final biayaPerawatan = labaBersihHarian * (50 / 542);
       final tabRollo = labaBersihHarian * (70 / 542);
 
       final newEntry = FinanceEntry(
@@ -118,7 +118,7 @@ class _ItemFormContentState extends State<ItemFormContent> with TickerProviderSt
         labaBersihHarian: labaBersihHarian,
         modalAwal: modalAwal,
         bagiHasil: bagiHasil,
-        pram: pram,
+        biayaPerawatan: biayaPerawatan,
         tabRollo: tabRollo,
         createdAt: DateTime.now(),
       );
